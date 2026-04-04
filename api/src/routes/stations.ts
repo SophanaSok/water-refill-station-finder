@@ -1,10 +1,12 @@
 import type { FastifyPluginAsync } from "fastify";
+import { getCached, setCached } from "../cache/redis.js";
 
-type StationRow = {
+type StationType = "fountain" | "bottle_filler" | "store_refill" | "tap";
+
+type StationListRow = {
   id: string;
   name: string;
-  type: string | null;
-  location: string;
+  type: StationType | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -21,160 +23,230 @@ type StationRow = {
   is_featured: boolean | null;
   created_at: string | null;
   updated_at: string | null;
+  latitude: number;
+  longitude: number;
+  working_confirmations: number;
+  not_working_confirmations: number;
+  last_confirmation_at: string | null;
 };
 
-const stationsRoutes: FastifyPluginAsync = async (server) => {
-  server.get("/", async (request, reply) => {
-    const query = request.query as {
-      lat?: string;
-      lng?: string;
-      radius?: string;
-      limit?: string;
-    };
+type StationDetailRow = StationListRow;
 
-    const limit = Math.min(Math.max(Number.parseInt(query.limit ?? "100", 10) || 100, 1), 500);
-    const lat = query.lat !== undefined ? Number.parseFloat(query.lat) : undefined;
-    const lng = query.lng !== undefined ? Number.parseFloat(query.lng) : undefined;
-    const radius = query.radius !== undefined ? Number.parseInt(query.radius, 10) || 5000 : 5000;
+type StationListQuery = {
+  lat?: number;
+  lng?: number;
+  radius?: number;
+  type?: StationType;
+  is_free?: boolean;
+  geojson?: boolean;
+};
 
-    if ((lat === undefined) !== (lng === undefined)) {
-      return reply.code(400).send({
-        error: "Bad Request",
-        message: "lat and lng must be provided together",
-      });
-    }
+const stationListQuerySchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    lat: { type: "number", default: 39.5 },
+    lng: { type: "number", default: -98.5 },
+    radius: { type: "integer", minimum: 1, maximum: 40000, default: 8047 },
+    type: { type: "string", enum: ["fountain", "bottle_filler", "store_refill", "tap"] },
+    is_free: { type: "boolean" },
+    geojson: { type: "boolean", default: true },
+  },
+} as const;
 
-    if (lat !== undefined && Number.isNaN(lat)) {
-      return reply.code(400).send({
-        error: "Bad Request",
-        message: "lat must be a valid number",
-      });
-    }
+const stationParamsSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    id: {
+      type: "string",
+      pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$",
+    },
+  },
+  required: ["id"],
+} as const;
 
-    if (lng !== undefined && Number.isNaN(lng)) {
-      return reply.code(400).send({
-        error: "Bad Request",
-        message: "lng must be a valid number",
-      });
-    }
+const MAX_LIST_RESULTS = 300;
+const LIST_CACHE_TTL_SECONDS = 300;
 
-    if (Number.isNaN(radius) || radius < 1) {
-      return reply.code(400).send({
-        error: "Bad Request",
-        message: "radius must be a positive integer",
-      });
-    }
+function truncateTo2Decimals(value: number): number {
+  return Math.trunc(value * 100) / 100;
+}
 
-    const nearbyFilter = lat !== undefined && lng !== undefined;
+function buildCacheKey(query: Required<Pick<StationListQuery, "lat" | "lng" | "radius" | "geojson">> & Pick<StationListQuery, "type" | "is_free">): string {
+  const typePart = query.type ?? "all";
+  const freePart = query.is_free === undefined ? "all" : String(query.is_free);
+  return `stations:${truncateTo2Decimals(query.lat).toFixed(2)},${truncateTo2Decimals(query.lng).toFixed(2)},${query.radius},${typePart},${freePart}`;
+}
 
-    const rows = (nearbyFilter
-      ? await server.db(
-          `
-            SELECT
-              id,
-              name,
-              type,
-              ST_AsGeoJSON(location)::text AS location,
-              address,
-              city,
-              state,
-              zip,
-              is_free,
-              cost_description,
-              is_verified,
-              status,
-              source,
-              osm_id::text AS osm_id,
-              photo_url,
-              added_by::text AS added_by,
-              owner_id::text AS owner_id,
-              is_featured,
-              created_at::text AS created_at,
-              updated_at::text AS updated_at
-            FROM stations
-            WHERE ST_DWithin(
-              location,
-              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography,
-              $3
-            )
-            ORDER BY ST_Distance(
-              location,
-              ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
-            ) ASC
-            LIMIT $4
-          `,
-          [lng, lat, radius, limit],
-        )
-      : await server.db(
-          `
-            SELECT
-              id,
-              name,
-              type,
-              ST_AsGeoJSON(location)::text AS location,
-              address,
-              city,
-              state,
-              zip,
-              is_free,
-              cost_description,
-              is_verified,
-              status,
-              source,
-              osm_id::text AS osm_id,
-              photo_url,
-              added_by::text AS added_by,
-              owner_id::text AS owner_id,
-              is_featured,
-              created_at::text AS created_at,
-              updated_at::text AS updated_at
-            FROM stations
-            ORDER BY created_at DESC
-            LIMIT $1
-          `,
-          [limit],
-        )) as StationRow[];
+function buildStationSelectColumns(tableAlias: string): string {
+  return `
+    ${tableAlias}.id,
+    ${tableAlias}.name,
+    ${tableAlias}.type,
+    ${tableAlias}.address,
+    ${tableAlias}.city,
+    ${tableAlias}.state,
+    ${tableAlias}.zip,
+    ${tableAlias}.is_free,
+    ${tableAlias}.cost_description,
+    ${tableAlias}.is_verified,
+    ${tableAlias}.status,
+    ${tableAlias}.source,
+    ${tableAlias}.osm_id::text AS osm_id,
+    ${tableAlias}.photo_url,
+    ${tableAlias}.added_by::text AS added_by,
+    ${tableAlias}.owner_id::text AS owner_id,
+    ${tableAlias}.is_featured,
+    ${tableAlias}.created_at::text AS created_at,
+    ${tableAlias}.updated_at::text AS updated_at,
+    ST_Y(${tableAlias}.location::geometry) AS latitude,
+    ST_X(${tableAlias}.location::geometry) AS longitude,
+    COALESCE(conf.working_confirmations, 0) AS working_confirmations,
+    COALESCE(conf.not_working_confirmations, 0) AS not_working_confirmations,
+    conf.last_confirmation_at::text AS last_confirmation_at
+  `;
+}
 
-    return rows;
-  });
+function toFeatureCollection(rows: StationListRow[]) {
+  return {
+    type: "FeatureCollection",
+    features: rows.map((station) => {
+      const { latitude, longitude, ...properties } = station;
 
-  server.get<{ Params: { id: string } }>("/:id", async (request, reply) => {
-    const [station] = (await server.db(
-      `
+      return {
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+        properties,
+      };
+    }),
+  };
+}
+
+function buildStationListSql(query: Required<Pick<StationListQuery, "lat" | "lng" | "radius">> & Pick<StationListQuery, "type" | "is_free">): { text: string; values: unknown[] } {
+  const values: unknown[] = [query.lng, query.lat, query.radius];
+  const whereClauses = [
+    "s.status = 'approved'",
+    "ST_DWithin(s.location, ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography, $3)",
+  ];
+
+  if (query.type !== undefined) {
+    values.push(query.type);
+    whereClauses.push(`s.type = $${values.length}`);
+  }
+
+  if (query.is_free !== undefined) {
+    values.push(query.is_free);
+    whereClauses.push(`s.is_free = $${values.length}`);
+  }
+
+  const text = `
+    SELECT
+      ${buildStationSelectColumns("s")}
+    FROM stations s
+    LEFT JOIN LATERAL (
+      SELECT
+        COUNT(*) FILTER (WHERE c.is_working IS TRUE) AS working_confirmations,
+        COUNT(*) FILTER (WHERE c.is_working IS FALSE) AS not_working_confirmations,
+        MAX(c.confirmed_at) AS last_confirmation_at
+      FROM confirmations c
+      WHERE c.station_id = s.id
+    ) conf ON TRUE
+    WHERE ${whereClauses.join(" AND ")}
+    ORDER BY ST_Distance(
+      s.location,
+      ST_SetSRID(ST_MakePoint($1, $2), 4326)::geography
+    ) ASC
+    LIMIT ${MAX_LIST_RESULTS}
+  `;
+
+  return { text, values };
+}
+
+function buildStationDetailSql(id: string): { text: string; values: unknown[] } {
+  return {
+    text: `
+      SELECT
+        ${buildStationSelectColumns("s")}
+      FROM stations s
+      LEFT JOIN LATERAL (
         SELECT
-          id,
-          name,
-          type,
-          ST_AsGeoJSON(location)::text AS location,
-          address,
-          city,
-          state,
-          zip,
-          is_free,
-          cost_description,
-          is_verified,
-          status,
-          source,
-          osm_id::text AS osm_id,
-          photo_url,
-          added_by::text AS added_by,
-          owner_id::text AS owner_id,
-          is_featured,
-          created_at::text AS created_at,
-          updated_at::text AS updated_at
-        FROM stations
-        WHERE id = $1
-        LIMIT 1
-      `,
-      [request.params.id],
-    )) as StationRow[];
+          COUNT(*) FILTER (WHERE c.is_working IS TRUE) AS working_confirmations,
+          COUNT(*) FILTER (WHERE c.is_working IS FALSE) AS not_working_confirmations,
+          MAX(c.confirmed_at) AS last_confirmation_at
+        FROM confirmations c
+        WHERE c.station_id = s.id
+      ) conf ON TRUE
+      WHERE s.id = $1
+      LIMIT 1
+    `,
+    values: [id],
+  };
+}
 
-    if (!station) {
-      return reply.code(404).send({ error: "Not Found", message: "Station not found" });
-    }
+const stationsRoutes: FastifyPluginAsync = async (server) => {
+  server.get(
+    "/",
+    {
+      schema: {
+        querystring: stationListQuerySchema,
+      },
+    },
+    async (request) => {
+      const query = request.query as StationListQuery;
+      const lat = query.lat ?? 39.5;
+      const lng = query.lng ?? -98.5;
+      const radius = Math.min(query.radius ?? 8047, 40000);
+      const geojson = query.geojson ?? true;
 
-    return station;
-  });
+      const cacheKey = buildCacheKey({ lat, lng, radius, geojson, type: query.type, is_free: query.is_free });
+      const cached = await getCached<StationListRow[]>(cacheKey);
+
+      let rows: StationListRow[];
+
+      if (cached !== null) {
+        rows = cached;
+      } else {
+        const stationListSql = buildStationListSql({
+          lat,
+          lng,
+          radius,
+          type: query.type,
+          is_free: query.is_free,
+        });
+        rows = (await server.db(stationListSql.text, stationListSql.values)) as StationListRow[];
+        await setCached(cacheKey, rows, LIST_CACHE_TTL_SECONDS);
+      }
+
+      if (geojson) {
+        return toFeatureCollection(rows);
+      }
+
+      return rows;
+    },
+  );
+
+  server.get<{ Params: { id: string } }>(
+    "/:id",
+    {
+      schema: {
+        params: stationParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const stationSql = buildStationDetailSql(request.params.id);
+      const [station] = (await server.db(stationSql.text, stationSql.values)) as StationDetailRow[];
+
+      if (!station) {
+        return reply.code(404).send({ error: "Station not found" });
+      }
+
+      return station;
+    },
+  );
 };
 
 export default stationsRoutes;
