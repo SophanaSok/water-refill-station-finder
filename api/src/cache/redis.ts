@@ -7,7 +7,14 @@ export const redis = new Redis({
 });
 
 export async function getCached<T>(key: string): Promise<T | null> {
-  const cached = await redis.get<string>(key);
+  let cached: string | null = null;
+
+  try {
+    cached = await redis.get<string>(key);
+  } catch (error) {
+    console.warn("Redis get failed, continuing without cache", { key, error });
+    return null;
+  }
 
   if (cached === null) {
     return null;
@@ -22,5 +29,9 @@ export async function getCached<T>(key: string): Promise<T | null> {
 
 export async function setCached(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const serialized = JSON.stringify(value);
-  await redis.set(key, serialized ?? "null", { ex: ttlSeconds });
+  try {
+    await redis.set(key, serialized ?? "null", { ex: ttlSeconds });
+  } catch (error) {
+    console.warn("Redis set failed, continuing without cache", { key, error });
+  }
 }
