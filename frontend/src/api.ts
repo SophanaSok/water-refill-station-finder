@@ -243,3 +243,33 @@ export async function flagStation(body: {
     body: JSON.stringify(body),
   });
 }
+
+/**
+ * Save a station for the current user (requires authentication)
+ */
+export async function saveStation(stationId: string): Promise<{ saved: boolean }> {
+  return apiFetch<{ saved: boolean }>(`/api/stations/${stationId}/save`, {
+    method: "POST",
+  });
+}
+
+/**
+ * Unsave a station for the current user (requires authentication)
+ */
+export async function unsaveStation(stationId: string): Promise<{ saved: boolean }> {
+  return apiFetch<{ saved: boolean }>(`/api/stations/${stationId}/save`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Fetch all saved stations for the current user (requires authentication)
+ */
+export async function fetchSavedStations(params?: {
+  lat?: number;
+  lng?: number;
+}): Promise<Station[]> {
+  return apiFetch<Station[]>("/api/stations/saved", {
+    params: params,
+  });
+}

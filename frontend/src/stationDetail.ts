@@ -1,4 +1,4 @@
-import { confirmStation, flagStation } from "./api";
+import { confirmStation, flagStation, saveStation, unsaveStation, fetchSavedStations } from "./api";
 import type { StationDetail } from "./api";
 import { isAuthenticated } from "./auth";
 import { openAuthModal } from "./authModal";
@@ -75,6 +75,24 @@ export function calculateDistance(lat1: number, lng1: number, lat2: number, lng2
 
   if (distance < 0.1) return "< 0.1 mi";
   return `${distance.toFixed(1)} mi`;
+}
+
+/**
+ * Load saved stations for authenticated user and populate savedStationIds
+ */
+export async function loadSavedStations(): Promise<void> {
+  if (!isAuthenticated()) {
+    return;
+  }
+
+  try {
+    const saved = await fetchSavedStations();
+    savedStationIds = new Set(saved.map((s) => s.id));
+  } catch (error) {
+    console.error("Failed to load saved stations:", error);
+    // Fall back to empty set if fetch fails
+    savedStationIds = new Set();
+  }
 }
 
 // ============================================================================
@@ -469,22 +487,28 @@ function handleSaveStation(btn: Element): void {
     return;
   }
 
-  const isSaved = savedStationIds.has(currentStation.id);
+  const stationId = currentStation.id;
+  const isSaved = savedStationIds.has(stationId);
+  const saveIcon = btn.querySelector("#save-icon") as HTMLElement | null;
 
-  if (isSaved) {
-    savedStationIds.delete(currentStation.id);
-  } else {
-    savedStationIds.add(currentStation.id);
-  }
-
-  // Update localStorage
-  localStorage.setItem("savedStationIds", JSON.stringify(Array.from(savedStationIds)));
-
-  // Update UI
-  const saveIcon = btn.querySelector("#save-icon");
+  // Optimistic update: toggle UI immediately
+  savedStationIds[isSaved ? "delete" : "add"](stationId);
   if (saveIcon) saveIcon.textContent = isSaved ? "☆" : "⭐";
   btn.textContent = (isSaved ? "☆ Save" : "⭐ Saved").replace(/[\s]+/g, " ").trim();
   if (saveIcon) btn.prepend(saveIcon);
+
+  // Make API call (revert on error)
+  const apiCall = isSaved ? unsaveStation(stationId) : saveStation(stationId);
+  
+  apiCall.catch((error) => {
+    console.error("Failed to save/unsave station:", error);
+    
+    // Revert optimistic update on error
+    savedStationIds[isSaved ? "add" : "delete"](stationId);
+    if (saveIcon) saveIcon.textContent = isSaved ? "⭐" : "☆";
+    btn.textContent = (isSaved ? "⭐ Saved" : "☆ Save").replace(/[\s]+/g, " ").trim();
+    if (saveIcon) btn.prepend(saveIcon);
+  });
 }
 
 function handleDirections(btn: Element): void {

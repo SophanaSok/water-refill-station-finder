@@ -1,9 +1,10 @@
 import { initMap } from "./map";
 import { fetchStations, geocodeSearch, fetchStationById } from "./api";
-import { openStationDetail, updateUserLocation } from "./stationDetail";
+import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
 import { openAddStation } from "./addStation";
 import { initializeAuth } from "./auth";
 import { openProfileSheet } from "./profile";
+import { openSavedStationsSheet, setMapInstance, setLastGeolocation } from "./savedStations";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
@@ -458,6 +459,7 @@ function initFabButtons(map: ReturnType<typeof initMap>) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         lastGeolocationResult = { lat: latitude, lng: longitude };
+        setLastGeolocation(latitude, longitude);
 
         // Update user location for stationDetail distance calculations
         updateUserLocation(latitude, longitude);
@@ -508,7 +510,7 @@ function initBottomNav() {
     overlay.style.display = "block";
     navTabs.forEach((t) => t.classList.remove("active-tab"));
     tabs.saved.classList.add("active-tab");
-    // TODO: Render saved stations view
+    openSavedStationsSheet();
   });
 
   tabs.profile.addEventListener("click", () => {
@@ -541,6 +543,7 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
     (pos) => {
       const { latitude, longitude } = pos.coords;
       lastGeolocationResult = { lat: latitude, lng: longitude };
+      setLastGeolocation(latitude, longitude);
 
       // Update user location for stationDetail distance calculations
       updateUserLocation(latitude, longitude);
@@ -581,6 +584,10 @@ function main() {
 
   // Initialize map
   mapInstance = initMap("map");
+  setMapInstance(mapInstance);
+
+  // Load saved stations for authenticated user
+  loadSavedStations();
 
   // Set up geolocation on load
   requestGeolocation(mapInstance);

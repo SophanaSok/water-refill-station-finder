@@ -247,6 +247,156 @@ const stationsRoutes: FastifyPluginAsync = async (server) => {
       return station;
     },
   );
+
+  // Save a station (requires authentication)
+  server.post<{ Params: { id: string } }>(
+    "/:id/save",
+    {
+      schema: {
+        params: stationParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      // Extract user ID from BetterAuth session (via Authorization header or cookies)
+      const authHeader = request.headers.authorization?.replace("Bearer ", "");
+      if (!authHeader) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      // For now, we'll extract user_id from a custom header since BetterAuth integration is simplified
+      // In production, this would verify the session token with BetterAuth
+      const userId = request.headers["x-user-id"] as string;
+      if (!userId) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const stationId = request.params.id;
+
+      // Verify station exists
+      const [station] = (await server.db(
+        "SELECT id FROM stations WHERE id = $1 LIMIT 1",
+        [stationId],
+      )) as Array<{ id: string }>;
+
+      if (!station) {
+        return reply.code(404).send({ error: "Station not found" });
+      }
+
+      // Insert into saved_stations (ON CONFLICT DO NOTHING for idempotency)
+      await server.db(
+        `
+          INSERT INTO saved_stations (user_id, station_id)
+          VALUES ($1, $2)
+          ON CONFLICT DO NOTHING
+        `,
+        [userId, stationId],
+      );
+
+      return { saved: true };
+    },
+  );
+
+  // Unsave a station (requires authentication)
+  server.delete<{ Params: { id: string } }>(
+    "/:id/save",
+    {
+      schema: {
+        params: stationParamsSchema,
+      },
+    },
+    async (request, reply) => {
+      const authHeader = request.headers.authorization?.replace("Bearer ", "");
+      if (!authHeader) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const userId = request.headers["x-user-id"] as string;
+      if (!userId) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const stationId = request.params.id;
+
+      await server.db(
+        `
+          DELETE FROM saved_stations
+          WHERE user_id = $1 AND station_id = $2
+        `,
+        [userId, stationId],
+      );
+
+      return { saved: false };
+    },
+  );
+
+  // Get all saved stations for current user (requires authentication)
+  server.get<{ Querystring: { lat?: number; lng?: number } }>(
+    "/saved",
+    {
+      schema: {
+        querystring: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            lat: { type: "number" },
+            lng: { type: "number" },
+          },
+        },
+      },
+    },
+    async (request, reply) => {
+      const authHeader = request.headers.authorization?.replace("Bearer ", "");
+      if (!authHeader) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const userId = request.headers["x-user-id"] as string;
+      if (!userId) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const { lat, lng } = request.query as { lat?: number; lng?: number };
+
+      interface SavedStationRow extends StationListRow {
+        distance_km?: number;
+      }
+
+      let sql: string;
+      const params: (string | number)[] = [userId];
+
+      if (lat !== undefined && lng !== undefined) {
+        // Calculate distance if lat/lng provided
+        sql = `
+          SELECT
+            ${buildStationSelectColumns("s")},
+            ST_Distance(
+              s.location,
+              ST_SetSRID(ST_MakePoint($2, $3), 4326)::geography
+            ) / 1000 AS distance_km
+          FROM saved_stations ss
+          JOIN stations s ON ss.station_id = s.id
+          WHERE ss.user_id = $1
+          ORDER BY distance_km ASC
+          LIMIT ${MAX_LIST_RESULTS}
+        `;
+        params.push(lng, lat);
+      } else {
+        // Without distance calculation
+        sql = `
+          SELECT
+            ${buildStationSelectColumns("s")}
+          FROM saved_stations ss
+          JOIN stations s ON ss.station_id = s.id
+          WHERE ss.user_id = $1
+          ORDER BY ss.saved_at DESC
+          LIMIT ${MAX_LIST_RESULTS}
+        `;
+      }
+
+      const rows = (await server.db(sql, params)) as SavedStationRow[];
+      return rows;
+    },
+  );
 };
 
 export default stationsRoutes;
