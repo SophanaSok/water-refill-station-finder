@@ -180,6 +180,15 @@ function renderAppShell() {
           placeholder="Search by city, ZIP, or station name"
           autocomplete="off"
         />
+        <button
+          id="search-close"
+          type="button"
+          class="search-bar__close"
+          aria-label="Close search overlay"
+          aria-hidden="true"
+        >
+          ✕
+        </button>
         <div id="search-dropdown" class="search-dropdown" style="display: none;">
           <ul id="search-results" role="listbox"></ul>
         </div>
@@ -274,6 +283,34 @@ function renderAppShell() {
       <div id="overlay" class="overlay" style="display: none;"></div>
     </div>
   `;
+}
+
+function setSearchOverlayActive(active: boolean) {
+  const appShell = getElement<HTMLDivElement>(".app-shell");
+  const overlay = getElement<HTMLDivElement>("#overlay");
+  const searchInput = getElement<HTMLInputElement>("#search");
+  const searchDropdown = getElement<HTMLDivElement>("#search-dropdown");
+  const searchClose = document.querySelector<HTMLButtonElement>("#search-close");
+
+  appShell.setAttribute("data-search-active", String(active));
+  overlay.style.display = active ? "block" : "none";
+  overlay.setAttribute("aria-hidden", active ? "false" : "true");
+
+  if (searchClose) {
+    searchClose.setAttribute("aria-hidden", active ? "false" : "true");
+  }
+
+  if (!active) {
+    searchDropdown.style.display = "none";
+    searchInput.value = "";
+    searchInput.blur();
+    return;
+  }
+
+  window.requestAnimationFrame(() => {
+    searchInput.focus();
+    searchInput.select();
+  });
 }
 
 function setMapEmptyState(count: number) {
@@ -509,6 +546,11 @@ class SearchBarController {
   private initEscapeKey() {
     this.input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        if (getElement<HTMLDivElement>(".app-shell").getAttribute("data-search-active") === "true") {
+          setSearchOverlayActive(false);
+          return;
+        }
+
         this.input.value = "";
         this.dropdown.style.display = "none";
       }
@@ -690,32 +732,58 @@ function initBottomNav() {
 
   const overlay = getElement<HTMLDivElement>("#overlay");
   const navTabs = Array.from(getElement(".bottom-nav").querySelectorAll(".nav-tab"));
+  const searchClose = document.querySelector<HTMLButtonElement>("#search-close");
+
+  const setActiveTab = (activeTab: HTMLButtonElement) => {
+    navTabs.forEach((tab) => tab.classList.remove("active-tab"));
+    activeTab.classList.add("active-tab");
+  };
+
+  const closeSearchMode = () => {
+    setSearchOverlayActive(false);
+    setActiveTab(tabs.map);
+    tabs.map.setAttribute("aria-current", "page");
+    tabs.search.removeAttribute("aria-current");
+  };
 
   tabs.map.addEventListener("click", () => {
+    closeSearchMode();
     overlay.style.display = "none";
-    navTabs.forEach((t) => t.classList.remove("active-tab"));
-    tabs.map.classList.add("active-tab");
   });
 
   tabs.search.addEventListener("click", () => {
     overlay.style.display = "block";
-    navTabs.forEach((t) => t.classList.remove("active-tab"));
-    tabs.search.classList.add("active-tab");
-    // TODO: Render full-screen search overlay
+    setActiveTab(tabs.search);
+    tabs.search.setAttribute("aria-current", "page");
+    tabs.map.removeAttribute("aria-current");
+    setSearchOverlayActive(true);
   });
 
   tabs.saved.addEventListener("click", () => {
+    setSearchOverlayActive(false);
     overlay.style.display = "block";
-    navTabs.forEach((t) => t.classList.remove("active-tab"));
-    tabs.saved.classList.add("active-tab");
+    setActiveTab(tabs.saved);
+    tabs.saved.setAttribute("aria-current", "page");
+    tabs.map.removeAttribute("aria-current");
+    tabs.search.removeAttribute("aria-current");
     openSavedStationsSheet();
   });
 
   tabs.profile.addEventListener("click", () => {
+    setSearchOverlayActive(false);
     overlay.style.display = "block";
-    navTabs.forEach((t) => t.classList.remove("active-tab"));
-    tabs.profile.classList.add("active-tab");
+    setActiveTab(tabs.profile);
+    tabs.profile.setAttribute("aria-current", "page");
+    tabs.map.removeAttribute("aria-current");
+    tabs.search.removeAttribute("aria-current");
     openProfileSheet();
+  });
+
+  searchClose?.addEventListener("click", closeSearchMode);
+  overlay.addEventListener("click", () => {
+    if (getElement<HTMLDivElement>(".app-shell").getAttribute("data-search-active") === "true") {
+      closeSearchMode();
+    }
   });
 }
 
