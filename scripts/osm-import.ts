@@ -6,10 +6,19 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.kumi.systems/api/interpreter",
   "https://lz4.overpass-api.de/api/interpreter",
 ];
-const OVERPASS_QUERY = `[out:json][timeout:60];
-area["ISO3166-1"="US"][admin_level=2]->.usa;
-node(area.usa)["amenity"="drinking_water"];
-out body;`;
+const US_BBOX_REGIONS: ReadonlyArray<{ name: string; bbox: string }> = [
+  { name: "west-south", bbox: "24.4,-125.0,37.0,-112.0" },
+  { name: "west-north", bbox: "37.0,-125.0,49.4,-112.0" },
+  { name: "mountain-south", bbox: "24.4,-112.0,37.0,-100.0" },
+  { name: "mountain-north", bbox: "37.0,-112.0,49.4,-100.0" },
+  { name: "central-south", bbox: "24.4,-100.0,37.0,-88.0" },
+  { name: "central-north", bbox: "37.0,-100.0,49.4,-88.0" },
+  { name: "east-south", bbox: "24.4,-88.0,37.0,-76.5" },
+  { name: "east-mid", bbox: "30.0,-82.5,41.0,-70.0" },
+  { name: "east-north", bbox: "37.0,-88.0,49.4,-66.8" },
+  { name: "alaska", bbox: "51.2,-170.0,71.5,-129.9" },
+  { name: "hawaii", bbox: "18.8,-160.5,22.5,-154.5" },
+];
 
 const BATCH_SIZE = 500;
 
@@ -107,46 +116,63 @@ function mapNodeToStation(node: OverpassNode): SeedStation {
 }
 
 async function fetchOverpassStations(): Promise<OverpassNode[]> {
-  let payload: OverpassResponse | null = null;
-  let lastError: unknown = null;
+  const collected = new Map<number, OverpassNode>();
 
-  for (const endpoint of OVERPASS_ENDPOINTS) {
-    try {
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-        },
-        body: new URLSearchParams({ data: OVERPASS_QUERY }),
-      });
+  for (const region of US_BBOX_REGIONS) {
+    const query = `[out:json][timeout:60];node["amenity"="drinking_water"](${region.bbox});out body;`;
+    let payload: OverpassResponse | null = null;
+    let lastError: unknown = null;
 
-      if (!response.ok) {
-        throw new Error(`Overpass request failed with status ${response.status}`);
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      try {
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+          },
+          body: new URLSearchParams({ data: query }),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Overpass request failed with status ${response.status}`);
+        }
+
+        payload = (await response.json()) as OverpassResponse;
+        if (!Array.isArray(payload.elements)) {
+          throw new Error("Unexpected Overpass response shape");
+        }
+
+        if (typeof (payload as { remark?: unknown }).remark === "string") {
+          throw new Error(String((payload as { remark?: string }).remark));
+        }
+
+        break;
+      } catch (error) {
+        lastError = error;
+        console.warn(`Overpass endpoint failed for ${region.name}: ${endpoint}`);
       }
-
-      payload = (await response.json()) as OverpassResponse;
-      break;
-    } catch (error) {
-      lastError = error;
-      console.warn(`Overpass endpoint failed: ${endpoint}`);
     }
+
+    if (!payload) {
+      throw new Error(`All Overpass endpoints failed for region ${region.name}. Last error: ${String(lastError)}`);
+    }
+
+    const nodes = payload.elements.filter((element): element is OverpassNode => {
+      return (
+        typeof element.id === "number" &&
+        typeof element.lat === "number" &&
+        typeof element.lon === "number"
+      );
+    });
+
+    for (const node of nodes) {
+      collected.set(node.id, node);
+    }
+
+    console.log(`Fetched ${nodes.length} station node(s) for ${region.name}.`);
   }
 
-  if (!payload) {
-    throw new Error(`All Overpass endpoints failed. Last error: ${String(lastError)}`);
-  }
-
-  if (!Array.isArray(payload.elements)) {
-    throw new Error("Unexpected Overpass response shape");
-  }
-
-  return payload.elements.filter((element): element is OverpassNode => {
-    return (
-      typeof element.id === "number" &&
-      typeof element.lat === "number" &&
-      typeof element.lon === "number"
-    );
-  });
+  return Array.from(collected.values());
 }
 
 function chunk<T>(items: T[], size: number): T[][] {
@@ -174,8 +200,8 @@ function buildUpsertQuery(stations: SeedStation[]): { text: string; values: unkn
       station.state,
       station.zip,
       station.costDescription,
-      station.photoUrl,
       station.osmId,
+      station.photoUrl,
     );
 
     return `(
