@@ -2,7 +2,7 @@ import type { MapController } from "./map";
 import { fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
 import { initializeAuth } from "./auth";
-import { trackPlausible } from "./analytics";
+import { startTiming, trackPlausible, trackTiming } from "./analytics";
 import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
 import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
 import { showStationDetailLoading } from "./stationDetail";
@@ -18,6 +18,7 @@ let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 let savedStationsModulePromise: Promise<typeof import("./savedStations")> | null = null;
 let profileModulePromise: Promise<typeof import("./profile")> | null = null;
+let hasTrackedFirstStationsLoad = false;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 
@@ -59,6 +60,17 @@ function showNoNearbyStationsMessage() {
 
 async function fetchStationsWithNearbyFallback(lat: number, lng: number) {
   return fetchStations({ lat, lng, radius: NEARBY_SEARCH_RADIUS_METERS });
+}
+
+function trackFirstStationsLoad(stationCount: number) {
+  if (hasTrackedFirstStationsLoad) {
+    return;
+  }
+
+  hasTrackedFirstStationsLoad = true;
+  trackTiming("perf_first_stations_loaded", "map_init_to_first_stations", {
+    station_count: String(stationCount),
+  });
 }
 
 function getSavedStationsModule() {
@@ -879,6 +891,7 @@ async function loadStationsAtLocation(lng: number, lat: number) {
     isSearchingThisArea = true;
     const geojson = await fetchStationsWithNearbyFallback(lat, lng);
     mapInstance.loadStations(geojson);
+    trackFirstStationsLoad(geojson.features.length);
     await openNearestStationIfAvailable(geojson);
     if (geojson.features.length === 0) {
       showNoNearbyStationsMessage();
@@ -909,6 +922,7 @@ function requestGeolocation(map: MapController) {
         try {
           const geojson = await fetchStationsWithNearbyFallback(latitude, longitude);
           map.loadStations(geojson);
+          trackFirstStationsLoad(geojson.features.length);
           await openNearestStationIfAvailable(geojson);
           if (geojson.features.length === 0) {
             showNoNearbyStationsMessage();
@@ -932,8 +946,11 @@ function requestGeolocation(map: MapController) {
 // ============================================================================
 
 async function main() {
+  startTiming("boot_to_shell_ready");
+
   // Render app shell
   renderAppShell();
+  trackTiming("perf_shell_ready", "boot_to_shell_ready");
   initLegendToggle();
   initConnectivityBanner();
   registerServiceWorker();
@@ -945,15 +962,20 @@ async function main() {
   initBottomNav();
 
   // Wait for idle or first interaction before loading the heavy map bundle.
+  startTiming("shell_to_map_bundle_ready");
   await waitForMapBootstrapSignal();
 
   // Initialize map
   const { initMap } = await import("./map");
+  trackTiming("perf_map_bundle_loaded", "shell_to_map_bundle_ready");
+  startTiming("map_bootstrap_ready");
   mapInstance = initMap("map");
   await setSavedStationsMapInstance(mapInstance);
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
   });
+  trackTiming("perf_map_ready", "map_bootstrap_ready");
+  startTiming("map_init_to_first_stations");
 
   // Load saved stations for authenticated user
   loadSavedStations();
