@@ -83,18 +83,38 @@ function getProfileModule() {
   return profileModulePromise;
 }
 
-async function setSavedStationsMapInstance(map: MapController) {
-  const { setMapInstance } = await getSavedStationsModule();
-  setMapInstance(map);
+function syncSavedStationsMapInstance(map: MapController) {
+  if (!savedStationsModulePromise) {
+    return;
+  }
+
+  void savedStationsModulePromise.then(({ setMapInstance }) => {
+    setMapInstance(map);
+  });
 }
 
-async function setSavedStationsLastGeolocation(lat: number, lng: number) {
-  const { setLastGeolocation } = await getSavedStationsModule();
-  setLastGeolocation(lat, lng);
+function syncSavedStationsGeolocation(lat: number, lng: number) {
+  if (!savedStationsModulePromise) {
+    return;
+  }
+
+  void savedStationsModulePromise.then(({ setLastGeolocation }) => {
+    setLastGeolocation(lat, lng);
+  });
 }
 
 async function openSavedStationsOverlay() {
-  const { openSavedStationsSheet } = await getSavedStationsModule();
+  const savedStations = await getSavedStationsModule();
+
+  if (mapInstance) {
+    savedStations.setMapInstance(mapInstance);
+  }
+
+  if (lastGeolocationResult) {
+    savedStations.setLastGeolocation(lastGeolocationResult.lat, lastGeolocationResult.lng);
+  }
+
+  const { openSavedStationsSheet } = savedStations;
   openSavedStationsSheet();
 }
 
@@ -789,7 +809,7 @@ function initFabButtons(map: MapController) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         lastGeolocationResult = { lat: latitude, lng: longitude };
-        void setSavedStationsLastGeolocation(latitude, longitude);
+        syncSavedStationsGeolocation(latitude, longitude);
 
         // Update user location for stationDetail distance calculations
         updateUserLocation(latitude, longitude);
@@ -908,7 +928,7 @@ function requestGeolocation(map: MapController) {
     (pos) => {
       const { latitude, longitude } = pos.coords;
       lastGeolocationResult = { lat: latitude, lng: longitude };
-      void setSavedStationsLastGeolocation(latitude, longitude);
+      syncSavedStationsGeolocation(latitude, longitude);
 
       // Update user location for stationDetail distance calculations
       updateUserLocation(latitude, longitude);
@@ -970,7 +990,7 @@ async function main() {
   trackTiming("perf_map_bundle_loaded", "shell_to_map_bundle_ready");
   startTiming("map_bootstrap_ready");
   mapInstance = initMap("map");
-  await setSavedStationsMapInstance(mapInstance);
+  syncSavedStationsMapInstance(mapInstance);
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
   });
