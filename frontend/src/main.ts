@@ -126,6 +126,50 @@ function registerServiceWorker() {
   }
 }
 
+function waitForMapBootstrapSignal(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const eventNames: Array<keyof WindowEventMap> = ["pointerdown", "keydown", "touchstart", "wheel"];
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+
+      eventNames.forEach((eventName) => {
+        window.removeEventListener(eventName, finish);
+      });
+
+      if (idleHandle !== null && "cancelIdleCallback" in window) {
+        window.cancelIdleCallback(idleHandle);
+      }
+
+      if (timeoutHandle !== null) {
+        clearTimeout(timeoutHandle);
+      }
+
+      resolve();
+    };
+
+    eventNames.forEach((eventName) => {
+      window.addEventListener(eventName, finish, { once: true, passive: true });
+    });
+
+    let idleHandle: number | null = null;
+    let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleHandle = window.requestIdleCallback(() => {
+        finish();
+      }, { timeout: 700 });
+      return;
+    }
+
+    timeoutHandle = setTimeout(() => {
+      finish();
+    }, 200);
+  });
+}
+
 // ============================================================================
 // DOM Utilities
 // ============================================================================
@@ -897,6 +941,12 @@ async function main() {
   // Initialize authentication (restore session if present)
   initializeAuth();
 
+  // Initialize bottom nav tabs early so non-map overlays remain responsive.
+  initBottomNav();
+
+  // Wait for idle or first interaction before loading the heavy map bundle.
+  await waitForMapBootstrapSignal();
+
   // Initialize map
   const { initMap } = await import("./map");
   mapInstance = initMap("map");
@@ -919,9 +969,6 @@ async function main() {
 
   // Initialize FAB buttons
   initFabButtons(mapInstance);
-
-  // Initialize bottom nav tabs
-  initBottomNav();
 
   // Connect map station click to detail view
   mapInstance.onStationClick((stationId) => {
