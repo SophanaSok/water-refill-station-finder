@@ -20,6 +20,21 @@ import "./styles/components.css";
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 
+function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
+  const firstFeature = geojson.features[0];
+  const stationId = firstFeature?.properties?.id;
+  return typeof stationId === "string" ? stationId : null;
+}
+
+async function openNearestStationIfAvailable(geojson: Awaited<ReturnType<typeof fetchStations>>): Promise<void> {
+  const nearestStationId = getNearestStationId(geojson);
+  if (!nearestStationId) {
+    return;
+  }
+
+  await handleMapClick(nearestStationId);
+}
+
 function setOfflineBanner(offline: boolean) {
   const banner = document.querySelector<HTMLDivElement>("#offline-banner");
   if (!banner) return;
@@ -115,9 +130,9 @@ function renderAppShell() {
       </div>
       <div id="map" class="map-canvas"></div>
       <div id="map-empty-state" class="map-empty-state" style="display: none;"></div>
-      <div id="map-legend" class="map-legend" data-collapsed="false">
-        <button class="map-legend__toggle" type="button" aria-expanded="true">
-          <span>Legend</span>
+      <div id="map-legend" class="map-legend" data-collapsed="true">
+        <button class="map-legend__toggle" type="button" aria-expanded="false">
+          <span>Map legend</span>
           <span aria-hidden="true">▾</span>
         </button>
         <div class="map-legend__body">
@@ -130,6 +145,7 @@ function renderAppShell() {
       </div>
       
       <form class="search-bar" role="search" aria-label="Search stations">
+        <span class="sidebar-kicker" aria-hidden="true">Find stations</span>
         <span aria-hidden="true">🔎</span>
         <input 
           id="search" 
@@ -143,6 +159,7 @@ function renderAppShell() {
       </form>
 
       <div class="filter-pills" role="toolbar" aria-label="Filters">
+        <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
         <button class="filter-pill active-pill" data-filter="all" aria-pressed="true">
           All
         </button>
@@ -179,6 +196,7 @@ function renderAppShell() {
       </div>
 
       <section class="bottom-sheet" data-state="peek" aria-label="Station details panel">
+        <div class="sidebar-kicker sidebar-kicker--sheet" aria-hidden="true">Station details</div>
         <div class="handle" aria-hidden="true"></div>
         <div class="content">
           <article id="station-card" class="station-card">
@@ -562,6 +580,7 @@ class SearchThisAreaController {
         isSearchingThisArea = true;
         const geojson = await fetchStations({ lat: center.lat, lng: center.lng });
         this.map.loadStations(geojson);
+        await openNearestStationIfAvailable(geojson);
         this.button.style.display = "none";
         isSearchingThisArea = false;
       } catch (error) {
@@ -661,6 +680,7 @@ async function loadStationsAtLocation(lng: number, lat: number) {
     isSearchingThisArea = true;
     const geojson = await fetchStations({ lat, lng });
     mapInstance.loadStations(geojson);
+    await openNearestStationIfAvailable(geojson);
     isSearchingThisArea = false;
   } catch (error) {
     console.error("Failed to load stations:", error);
@@ -687,6 +707,7 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
         try {
           const geojson = await fetchStations({ lat: latitude, lng: longitude });
           map.loadStations(geojson);
+          await openNearestStationIfAvailable(geojson);
         } catch (error) {
           console.error("Failed to load stations:", error);
         }
