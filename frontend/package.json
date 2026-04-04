@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "deploy:pages": "npm run build && wrangler pages deploy dist --project-name water-refill-station-finder"
+    "deploy:pages": "wrangler pages deploy dist --project-name water-refill-station-finder"
   },
   "dependencies": {
     "better-auth": "^1.5.6",
