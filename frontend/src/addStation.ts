@@ -1,6 +1,8 @@
 import maplibregl from "maplibre-gl";
 import { geocodeSearch, submitStation } from "./api";
 import type { GeocodeResult } from "./api";
+import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
+import { trackPlausible } from "./analytics";
 
 // ============================================================================
 // Module State
@@ -543,16 +545,21 @@ function renderStep2(): HTMLElement {
     radio.value = type;
     radio.checked = formData.type === type;
 
-    const icons: Record<string, string> = {
-      fountain: "💧 Drinking Fountain",
-      bottle_filler: "🍶 Bottle Filler",
-      store_refill: "🏪 Store Refill Station",
-      tap: "🚰 Tap / Spigot",
-    };
+    const icon = document.createElement("span");
+    icon.className = "add-station-radio-icon";
+    icon.innerHTML = getStationTypeIconMarkup(type);
 
     const span = document.createElement("span");
-    span.textContent = icons[type] ?? type;
+    span.textContent =
+      type === "fountain"
+        ? "Drinking Fountain"
+        : type === "bottle_filler"
+          ? "Bottle Filler"
+          : type === "store_refill"
+            ? "Store Refill Station"
+            : "Tap / Spigot";
 
+    label.appendChild(icon);
     label.appendChild(radio);
     label.appendChild(span);
     typeOptions.appendChild(label);
@@ -1003,6 +1010,7 @@ async function handleSubmit(): Promise<void> {
 
     // Submit
     await submitStation(fd);
+    trackPlausible("station_submitted");
 
     // Show success state
     showSuccessState(formData.email);

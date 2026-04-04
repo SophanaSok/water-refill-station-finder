@@ -25,8 +25,10 @@ class MapControllerImpl {
   private readonly map: Map;
   private stationClickCallback: (stationId: string) => void = () => {};
   private mapMoveCallback: (center: Center) => void = () => {};
+  private visibleStationsCallback: (count: number) => void = () => {};
   private currentFilters: StationFilters = {};
   private pendingData: StationFeatureCollection | null = null;
+  private hasLoadedStations = false;
   private userLocationInitialized = false;
   private readonly defaultRadiusMeters = 8047;
 
@@ -52,10 +54,12 @@ class MapControllerImpl {
       if (this.pendingData) {
         this.updateStationSource(this.pendingData);
       }
+      this.emitVisibleStationsCount();
     });
 
     this.map.on("moveend", () => {
       this.mapMoveCallback(this.getCurrentCenter());
+      this.emitVisibleStationsCount();
     });
   }
 
@@ -66,12 +70,14 @@ class MapControllerImpl {
   loadStations(geojson: FeatureCollection): void {
     const typed = geojson as StationFeatureCollection;
     this.pendingData = typed;
+    this.hasLoadedStations = true;
 
     if (!this.map.isStyleLoaded()) {
       return;
     }
 
     this.updateStationSource(typed);
+    this.emitVisibleStationsCount();
   }
 
   setFilter(filters: StationFilters): void {
@@ -134,6 +140,11 @@ class MapControllerImpl {
 
   onMapMove(callback: (center: Center) => void): void {
     this.mapMoveCallback = callback;
+  }
+
+  onVisibleStationsChange(callback: (count: number) => void): void {
+    this.visibleStationsCallback = callback;
+    this.emitVisibleStationsCount();
   }
 
   getCurrentCenter(): Center {
@@ -205,7 +216,7 @@ class MapControllerImpl {
         "circle-opacity": [
           "case",
           [">=", ["coalesce", ["get", "last_confirmed_days"], 9999], 180],
-          0.5,
+            0.6,
           1,
         ],
       },
@@ -222,9 +233,9 @@ class MapControllerImpl {
       ],
       paint: {
         "circle-color": "rgba(0,0,0,0)",
-        "circle-radius": 12,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 11, 8, 12, 14, 14, 18, 16],
         "circle-stroke-color": "#f59e0b",
-        "circle-stroke-width": 1.5,
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 0, 1.25, 8, 1.5, 14, 2, 18, 2.5],
       },
     });
 
@@ -280,6 +291,21 @@ class MapControllerImpl {
     }
 
     source.setData(data);
+    this.emitVisibleStationsCount();
+  }
+
+  private emitVisibleStationsCount(): void {
+    if (!this.hasLoadedStations) {
+      return;
+    }
+
+    if (!this.map.isStyleLoaded()) {
+      this.visibleStationsCallback(0);
+      return;
+    }
+
+    const rendered = this.map.queryRenderedFeatures({ layers: ["clusters", "unclustered-point"] });
+    this.visibleStationsCallback(rendered.length);
   }
 
   private async refetchStations(): Promise<void> {
@@ -320,6 +346,7 @@ export type MapController = {
   showUserLocation: (lng: number, lat: number) => void;
   onStationClick: (callback: (stationId: string) => void) => void;
   onMapMove: (callback: (center: { lng: number; lat: number }) => void) => void;
+  onVisibleStationsChange: (callback: (count: number) => void) => void;
   getCurrentCenter: () => { lng: number; lat: number };
 };
 

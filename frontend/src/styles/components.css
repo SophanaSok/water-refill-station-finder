@@ -161,6 +161,130 @@
   }
 }
 
+.map-empty-state {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--space-16) + var(--space-5));
+  transform: translateX(-50%);
+  z-index: 46;
+  width: min(92vw, 26rem);
+}
+
+.empty-state-card {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent 20%);
+  background: color-mix(in srgb, var(--color-surface-elevated) 88%, transparent 12%);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
+}
+
+.empty-state-card .empty-state-copy {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.empty-state-card h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+}
+
+.empty-state-card p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.empty-state-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent 90%);
+  color: var(--color-primary);
+
+  & svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
+}
+
+.empty-state-action {
+  justify-self: start;
+}
+
+.map-legend {
+  position: absolute;
+  left: var(--space-4);
+  bottom: calc(var(--space-16) + var(--space-4));
+  z-index: 45;
+  width: min(78vw, 19rem);
+  border-radius: var(--radius-lg);
+  border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent 20%);
+  background: color-mix(in srgb, var(--color-surface-elevated) 90%, transparent 10%);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+}
+
+.map-legend__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  font-weight: 700;
+}
+
+.map-legend__body {
+  display: grid;
+  gap: var(--space-2);
+  padding: 0 var(--space-4) var(--space-4);
+}
+
+.map-legend[data-collapsed="true"] .map-legend__body {
+  display: none;
+}
+
+.map-legend[data-collapsed="true"] .map-legend__toggle span:last-child {
+  transform: rotate(-90deg);
+}
+
+.map-legend__item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.map-legend__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  display: grid;
+  place-items: center;
+  color: #01696f;
+
+  & svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.map-legend__icon--bottle { color: #006494; }
+.map-legend__icon--store { color: #437a22; }
+.map-legend__icon--tap { color: #7a39bb; }
+
+.map-legend__ring {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  border: 2px solid #f59e0b;
+  box-shadow: inset 0 0 0 2px transparent;
+}
+
 .bottom-sheet {
   position: absolute;
   left: 0;
@@ -226,6 +350,22 @@
   }
 }
 
+.badge--type {
+  gap: var(--space-1);
+}
+
+.badge-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-grid;
+  place-items: center;
+
+  & svg {
+    width: 100%;
+    height: 100%;
+  }
+}
+
 .confirmation-bar {
   margin-top: var(--space-4);
   padding: var(--space-3);
@@ -241,6 +381,14 @@
     display: flex;
     gap: var(--space-2);
   }
+}
+
+.confirm-pulse {
+  animation: confirmPulse 0.28s ease-out;
+}
+
+.count-bump {
+  animation: countBump 0.28s ease-out;
 }
 
 .btn-primary,
@@ -277,6 +425,20 @@
   font-weight: 700;
   background: var(--color-badge);
   color: var(--color-text);
+}
+
+.add-station-radio-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  display: inline-grid;
+  place-items: center;
+  color: var(--color-primary);
+  flex: 0 0 auto;
+
+  & svg {
+    width: 100%;
+    height: 100%;
+  }
 }
 
 .skeleton {
@@ -352,6 +514,18 @@
     box-shadow: var(--shadow-lg);
     padding: var(--space-5);
   }
+}
+
+@keyframes confirmPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes countBump {
+  0% { transform: translateY(0); }
+  40% { transform: translateY(-2px) scale(1.08); }
+  100% { transform: translateY(0) scale(1); }
 }
 
 @media (min-width: 768px) {

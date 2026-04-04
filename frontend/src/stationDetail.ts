@@ -2,6 +2,8 @@ import { confirmStation, flagStation, saveStation, unsaveStation, fetchSavedStat
 import type { StationDetail } from "./api";
 import { isAuthenticated } from "./auth";
 import { openAuthModal } from "./authModal";
+import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
+import { trackPlausible } from "./analytics";
 
 // ============================================================================
 // Module State
@@ -39,6 +41,20 @@ export function openStationDetail(station: StationDetail): void {
   // Animate open
   sheet.setAttribute("data-state", "half");
   sheet.scrollTop = 0;
+
+  trackPlausible("station_viewed", {
+    type: station.type,
+    city: station.city,
+  });
+}
+
+export function showStationDetailLoading(): void {
+  const sheet = getBottomSheet();
+  const contentDiv = sheet.querySelector(".content");
+  if (!contentDiv) return;
+
+  contentDiv.innerHTML = buildLoadingStationDetailHTML();
+  sheet.setAttribute("data-state", "half");
 }
 
 /**
@@ -126,7 +142,7 @@ function buildStationDetailHTML(station: StationDetail): string {
   const photoHtml = hasPhotoUrl
     ? `<img id="station-photo" src="${escapeHtml(station.photo_url ?? "")}" alt="${escapeHtml(station.name)}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md);" />`
     : `<div class="station-photo-placeholder" style="width: 100%; aspect-ratio: 1; background: color-mix(in srgb, var(--color-primary) 12%, transparent 88%); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-         ${getStationTypeIcon(station.type)}
+         ${getStationTypeIconMarkup(station.type)}
        </div>`;
 
   const freshnessHtml = getFreshnessHTML(station);
@@ -134,6 +150,7 @@ function buildStationDetailHTML(station: StationDetail): string {
   const costBadge = station.is_free ? "Free" : "Paid";
   const verifiedBadge = station.is_verified ? `<span class="badge">✓ Verified</span>` : "";
   const distanceBadge = distance ? `<span class="badge">${distance}</span>` : "";
+  const typeBadge = `<span class="badge badge--type"><span class="badge-icon">${getStationTypeIconMarkup(station.type)}</span>${escapeHtml(typeLabel)}</span>`;
 
   return `
     <article id="station-detail" class="station-detail" style="display: grid; gap: var(--space-4);">
@@ -156,7 +173,7 @@ function buildStationDetailHTML(station: StationDetail): string {
 
       <!-- Meta Info -->
       <div style="display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-sm);">
-        <span class="badge">${typeLabel}</span>
+        ${typeBadge}
         <span class="badge">${costBadge}</span>
         ${distanceBadge}
         <span class="badge">${escapeHtml(station.city)}, ${escapeHtml(station.state)}</span>
@@ -307,16 +324,6 @@ function getFreshnessHTML(station: StationDetail): string {
   </div>`;
 }
 
-function getStationTypeIcon(type: string): string {
-  const icons: Record<string, string> = {
-    fountain: "💧",
-    bottle_filler: "🍾",
-    store_refill: "🏪",
-    tap: "🚰",
-  };
-  return icons[type] ?? "💧";
-}
-
 function escapeHtml(text: string): string {
   const map: Record<string, string> = {
     "&": "&amp;",
@@ -424,8 +431,8 @@ function attachEventListeners(sheet: HTMLElement): void {
 async function handleConfirmation(isWorking: boolean, sheet: HTMLElement): Promise<void> {
   if (!currentStation || hasConfirmedThisSession) return;
 
-  const workingCount = sheet.querySelector("#working-count");
-  const notWorkingCount = sheet.querySelector("#not-working-count");
+  const workingCount = sheet.querySelector<HTMLSpanElement>("#working-count");
+  const notWorkingCount = sheet.querySelector<HTMLSpanElement>("#not-working-count");
   const confirmWorkingBtn = sheet.querySelector("#confirm-working");
   const confirmNotWorkingBtn = sheet.querySelector("#confirm-not-working");
 
@@ -443,6 +450,14 @@ async function handleConfirmation(isWorking: boolean, sheet: HTMLElement): Promi
 
   workingCount.textContent = String(currentStation.working_count);
   notWorkingCount.textContent = String(currentStation.not_working_count);
+  animateCount(workingCount);
+  animateCount(notWorkingCount);
+
+  const pressedButton = isWorking ? confirmWorkingBtn : confirmNotWorkingBtn;
+  if (pressedButton) {
+    pressedButton.classList.add("confirm-pulse");
+    window.setTimeout(() => pressedButton.classList.remove("confirm-pulse"), 280);
+  }
 
   // Disable buttons
   hasConfirmedThisSession = true;
@@ -460,6 +475,9 @@ async function handleConfirmation(isWorking: boolean, sheet: HTMLElement): Promi
 
   try {
     await confirmStation(currentStation.id, isWorking);
+    trackPlausible("confirmation_cast", {
+      is_working: String(isWorking),
+    });
   } catch (error) {
     console.error("Failed to submit confirmation:", error);
     // Revert optimistic update
@@ -517,8 +535,17 @@ function handleDirections(btn: Element): void {
 
   if (!lat || !lng) return;
 
-  const url = `https://maps.google.com/?q=${lat},${lng}`;
-  window.open(url, "_blank");
+  const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+  let url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
+  if (isMobile) {
+    url = isIOS
+      ? `maps://maps.apple.com/?daddr=${lat},${lng}`
+      : `geo:${lat},${lng}?q=${lat},${lng}`;
+  }
+
+  window.location.href = url;
 }
 
 async function handleFlagSubmit(e: Event, form: HTMLFormElement): Promise<void> {
@@ -557,6 +584,32 @@ async function handleFlagSubmit(e: Event, form: HTMLFormElement): Promise<void> 
     console.error("Failed to submit flag:", error);
     alert("Failed to submit report. Please try again.");
   }
+}
+
+function animateCount(element: HTMLElement): void {
+  element.classList.remove("count-bump");
+  void element.offsetWidth;
+  element.classList.add("count-bump");
+  window.setTimeout(() => element.classList.remove("count-bump"), 320);
+}
+
+function buildLoadingStationDetailHTML(): string {
+  return `
+    <article class="station-detail station-detail--loading" aria-busy="true" aria-live="polite">
+      <div class="station-detail-loading__photo skeleton"></div>
+      <div class="station-detail-loading__title skeleton"></div>
+      <div class="station-detail-loading__meta">
+        <span class="skeleton"></span>
+        <span class="skeleton"></span>
+        <span class="skeleton"></span>
+      </div>
+      <div class="station-detail-loading__body">
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+        <div class="skeleton"></div>
+      </div>
+    </article>
+  `;
 }
 
 // ============================================================================

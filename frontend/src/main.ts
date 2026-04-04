@@ -3,8 +3,12 @@ import { fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
 import { openAddStation } from "./addStation";
 import { initializeAuth } from "./auth";
+import { trackPlausible } from "./analytics";
+import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
+import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
 import { openProfileSheet } from "./profile";
 import { openSavedStationsSheet, setMapInstance, setLastGeolocation } from "./savedStations";
+import { showStationDetailLoading } from "./stationDetail";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
@@ -110,6 +114,20 @@ function renderAppShell() {
         You are offline. Showing cached data where available.
       </div>
       <div id="map" class="map-canvas"></div>
+      <div id="map-empty-state" class="map-empty-state" style="display: none;"></div>
+      <div id="map-legend" class="map-legend" data-collapsed="false">
+        <button class="map-legend__toggle" type="button" aria-expanded="true">
+          <span>Legend</span>
+          <span aria-hidden="true">▾</span>
+        </button>
+        <div class="map-legend__body">
+          <div class="map-legend__item"><span class="map-legend__icon">${getStationTypeIconMarkup("fountain")}</span><span>Fountain</span></div>
+          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--bottle">${getStationTypeIconMarkup("bottle_filler")}</span><span>Bottle filler</span></div>
+          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--store">${getStationTypeIconMarkup("store_refill")}</span><span>Store refill</span></div>
+          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--tap">${getStationTypeIconMarkup("tap")}</span><span>Tap</span></div>
+          <div class="map-legend__item"><span class="map-legend__ring"></span><span>Amber ring = unconfirmed 6+ months</span></div>
+        </div>
+      </div>
       
       <form class="search-bar" role="search" aria-label="Search stations">
         <span aria-hidden="true">🔎</span>
@@ -213,6 +231,35 @@ function renderAppShell() {
   `;
 }
 
+function setMapEmptyState(count: number) {
+  const container = getElement<HTMLDivElement>("#map-empty-state");
+
+  if (count > 0) {
+    container.style.display = "none";
+    container.innerHTML = "";
+    return;
+  }
+
+  container.innerHTML = renderNoStationsEmptyState();
+  container.style.display = "block";
+
+  container.querySelector<HTMLButtonElement>("[data-action='open-add-station']")?.addEventListener("click", () => {
+    openAddStation();
+  });
+}
+
+function initLegendToggle() {
+  const legend = document.querySelector<HTMLElement>("#map-legend");
+  if (!legend) return;
+
+  const toggle = legend.querySelector<HTMLButtonElement>(".map-legend__toggle");
+  toggle?.addEventListener("click", () => {
+    const collapsed = legend.getAttribute("data-collapsed") === "true";
+    legend.setAttribute("data-collapsed", String(!collapsed));
+    toggle.setAttribute("aria-expanded", String(collapsed));
+  });
+}
+
 // ============================================================================
 // Station Detail View
 // ============================================================================
@@ -223,6 +270,7 @@ function renderAppShell() {
 
 async function handleMapClick(stationId: string) {
   try {
+    showStationDetailLoading();
     const station = await fetchStationById(stationId);
     openStationDetail(station);
   } catch (error) {
@@ -327,7 +375,7 @@ class SearchBarController {
       try {
         const results = await geocodeSearch(query);
         this.renderResults(results);
-        this.dropdown.style.display = results.length > 0 ? "block" : "none";
+        this.dropdown.style.display = "block";
       } catch (error) {
         console.error("Geocode search failed:", error);
         this.dropdown.style.display = "none";
@@ -341,6 +389,11 @@ class SearchBarController {
   }
 
   private renderResults(results: Array<{ place_name: string; center: [number, number] }>) {
+    if (results.length === 0) {
+      this.resultsList.innerHTML = `<li>${renderSearchNoResultsEmptyState(this.input.value)}</li>`;
+      return;
+    }
+
     this.resultsList.innerHTML = results
       .map(
         (result, i) => `
@@ -382,6 +435,8 @@ class SearchBarController {
       // Close dropdown and clear input
       this.input.value = "";
       this.dropdown.style.display = "none";
+
+      trackPlausible("search_performed");
 
       // Fly to location and load stations
       this.map.flyTo(lng, lat, 14);
@@ -472,6 +527,7 @@ class FilterPillsController {
 class SearchThisAreaController {
   private button: HTMLButtonElement;
   private map;
+  private revealTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(mapInstance: ReturnType<typeof initMap>) {
     this.button = getElement<HTMLButtonElement>("#search-this-area");
@@ -482,13 +538,19 @@ class SearchThisAreaController {
 
   private initMapMoveHandler() {
     this.map.onMapMove(() => {
+      if (this.revealTimer) {
+        clearTimeout(this.revealTimer);
+      }
+
       // Show button when user manually moves the map
       if (!isSearchingThisArea && lastGeolocationResult) {
         const center = this.map.getCurrentCenter();
         const moved = Math.abs(center.lat - lastGeolocationResult.lat) > 0.01 ||
                        Math.abs(center.lng - lastGeolocationResult.lng) > 0.01;
-        
-        this.button.style.display = moved ? "block" : "none";
+
+        this.revealTimer = setTimeout(() => {
+          this.button.style.display = moved ? "block" : "none";
+        }, 1500);
       }
     });
   }
@@ -497,12 +559,14 @@ class SearchThisAreaController {
     this.button.addEventListener("click", async () => {
       const center = this.map.getCurrentCenter();
       try {
+        isSearchingThisArea = true;
         const geojson = await fetchStations({ lat: center.lat, lng: center.lng });
         this.map.loadStations(geojson);
         this.button.style.display = "none";
         isSearchingThisArea = false;
       } catch (error) {
         console.error("Failed to search this area:", error);
+        isSearchingThisArea = false;
       }
     });
   }
@@ -594,10 +658,13 @@ let mapInstance: ReturnType<typeof initMap> | null = null;
 async function loadStationsAtLocation(lng: number, lat: number) {
   if (!mapInstance) return;
   try {
+    isSearchingThisArea = true;
     const geojson = await fetchStations({ lat, lng });
     mapInstance.loadStations(geojson);
+    isSearchingThisArea = false;
   } catch (error) {
     console.error("Failed to load stations:", error);
+    isSearchingThisArea = false;
   }
 }
 
@@ -641,6 +708,7 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
 function main() {
   // Render app shell
   renderAppShell();
+  initLegendToggle();
   initConnectivityBanner();
   registerServiceWorker();
 
@@ -650,6 +718,9 @@ function main() {
   // Initialize map
   mapInstance = initMap("map");
   setMapInstance(mapInstance);
+  mapInstance.onVisibleStationsChange((count) => {
+    setMapEmptyState(count);
+  });
 
   // Load saved stations for authenticated user
   loadSavedStations();
@@ -671,6 +742,11 @@ function main() {
 
   // Connect map station click to detail view
   mapInstance.onStationClick((stationId) => {
+    const searchThisAreaButton = document.querySelector<HTMLButtonElement>("#search-this-area");
+    if (searchThisAreaButton) {
+      searchThisAreaButton.style.display = "none";
+    }
+
     handleMapClick(stationId);
   });
 }
