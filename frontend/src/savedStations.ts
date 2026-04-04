@@ -10,10 +10,10 @@ let savedSheetContainer: HTMLDivElement | null = null;
 // Reference to the main map instance (set from main.ts) - reserved for future use
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 let _mapInstance: any = null;
+void _mapInstance;
 
 export function setMapInstance(map: any): void {
   _mapInstance = map;
-}
 }
 
 // Inject styles for saved stations view

@@ -24,20 +24,22 @@ const OPENFREE_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const FONTSHARE_CSS_URL = "https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&display=swap";
 const APP_ICON_URLS = ["/icons/icon-192.png", "/icons/icon-512.png"];
 
+const sw = self as unknown as ServiceWorkerGlobalScope;
+
 let connectivityOnline = true;
 
-self.addEventListener("install", (event) => {
+sw.oninstall = (event) => {
   event.waitUntil((async () => {
     await precacheAppShell();
-    await self.skipWaiting();
+    await sw.skipWaiting();
   })());
-});
+};
 
-self.addEventListener("activate", (event) => {
-  event.waitUntil(self.clients.claim());
-});
+sw.onactivate = (event) => {
+  event.waitUntil(sw.clients.claim());
+};
 
-self.addEventListener("fetch", (event) => {
+sw.onfetch = (event) => {
   if (event.request.method !== "GET") {
     return;
   }
@@ -49,7 +51,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (requestUrl.origin !== self.location.origin && requestUrl.hostname !== "tiles.openfreemap.org") {
+  if (requestUrl.origin !== sw.location.origin && requestUrl.hostname !== "tiles.openfreemap.org") {
     return;
   }
 
@@ -64,11 +66,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   event.respondWith(networkOnly(event.request));
-});
+};
 
 async function precacheAppShell() {
   const cache = await caches.open(PRECACHE_NAME);
-  const rootUrl = new URL("/", self.location.origin).toString();
+  const rootUrl = new URL("/", sw.location.origin).toString();
   const urlsToCache = new Set<string>([
     rootUrl,
     FONTSHARE_CSS_URL,
@@ -111,14 +113,14 @@ function extractAssetUrls(html: string): string[] {
   for (const match of html.matchAll(stylesheetPattern)) {
     const href = match[1];
     if (href) {
-      urls.add(new URL(href, self.location.origin).toString());
+      urls.add(new URL(href, sw.location.origin).toString());
     }
   }
 
   for (const match of html.matchAll(scriptPattern)) {
     const src = match[1];
     if (src) {
-      urls.add(new URL(src, self.location.origin).toString());
+      urls.add(new URL(src, sw.location.origin).toString());
     }
   }
 
@@ -127,7 +129,7 @@ function extractAssetUrls(html: string): string[] {
 
 function shouldUsePrecache(requestUrl: URL): boolean {
   return (
-    requestUrl.origin === self.location.origin &&
+    requestUrl.origin === sw.location.origin &&
     (requestUrl.pathname === "/" || requestUrl.pathname.startsWith("/assets/") || requestUrl.pathname.startsWith("/icons/"))
   ) ||
   requestUrl.toString() === MAPLIBRE_CSS_URL ||
@@ -141,7 +143,7 @@ function isStationsRequest(url: URL): boolean {
 }
 
 function getFetchInit(url: string): RequestInit {
-  return new URL(url).origin === self.location.origin ? { cache: "no-cache" } : { mode: "no-cors" };
+  return new URL(url).origin === sw.location.origin ? { cache: "no-cache" } : { mode: "no-cors" };
 }
 
 async function cacheFirst(request: Request): Promise<Response> {
@@ -228,7 +230,7 @@ function setConnectivityState(online: boolean) {
   connectivityOnline = online;
   const message: ConnectivityMessage = { type: "connectivity", online };
 
-  void self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+  void sw.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients: ReadonlyArray<Client>) => {
     clients.forEach((client) => {
       client.postMessage(message);
     });
