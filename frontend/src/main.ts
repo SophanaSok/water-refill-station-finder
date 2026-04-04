@@ -1,6 +1,7 @@
 import { initMap } from "./map";
 import { fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation } from "./stationDetail";
+import { openAddStation } from "./addStation";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
@@ -469,10 +470,8 @@ function initFabButtons(map: ReturnType<typeof initMap>) {
     );
   });
 
-  // Add Station button (placeholder)
-  fabAdd.addEventListener("click", () => {
-    console.log("Add station feature coming in Phase 4");
-  });
+  // Add Station button
+  fabAdd.addEventListener("click", openAddStation);
 }
 
 // ============================================================================
