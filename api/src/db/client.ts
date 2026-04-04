@@ -64,3 +64,10 @@ export interface Flag {
   resolved: boolean | null;
   flagged_at: string | null;
 }
+
+export interface StationSubmission {
+  id: string;
+  station_id: string;
+  submitter_email: string;
+  submitted_at: string | null;
+}
