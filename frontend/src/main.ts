@@ -1,7 +1,6 @@
-import { initMap } from "./map";
+import type { MapController } from "./map";
 import { fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
-import { openAddStation } from "./addStation";
 import { initializeAuth } from "./auth";
 import { trackPlausible } from "./analytics";
 import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
@@ -105,6 +104,11 @@ function getElement<T extends Element>(selector: string): T {
   const el = document.querySelector<T>(selector);
   if (!el) throw new Error(`Element not found: ${selector}`);
   return el;
+}
+
+async function openAddStationOverlay() {
+  const { openAddStation } = await import("./addStation");
+  openAddStation();
 }
 
 /**
@@ -326,7 +330,7 @@ function setMapEmptyState(count: number) {
   container.style.display = "block";
 
   container.querySelector<HTMLButtonElement>("[data-action='open-add-station']")?.addEventListener("click", () => {
-    openAddStation();
+    void openAddStationOverlay();
   });
 }
 
@@ -453,7 +457,7 @@ class SearchBarController {
   private resultsList: HTMLUListElement;
   private map;
 
-  constructor(mapInstance: ReturnType<typeof initMap>) {
+  constructor(mapInstance: MapController) {
     this.input = getElement<HTMLInputElement>("#search");
     this.dropdown = getElement<HTMLDivElement>("#search-dropdown");
     this.resultsList = getElement<HTMLUListElement>("#search-results");
@@ -582,7 +586,7 @@ class FilterPillsController {
   private currentType: string | undefined;
   private currentIsFree: boolean | undefined;
 
-  constructor(mapInstance: ReturnType<typeof initMap>) {
+  constructor(mapInstance: MapController) {
     this.pills = Array.from(getElement(".filter-pills").querySelectorAll(".filter-pill"));
     this.map = mapInstance;
     this.initPillHandlers();
@@ -638,7 +642,7 @@ class SearchThisAreaController {
   private map;
   private revealTimer: ReturnType<typeof setTimeout> | null = null;
 
-  constructor(mapInstance: ReturnType<typeof initMap>) {
+  constructor(mapInstance: MapController) {
     this.button = getElement<HTMLButtonElement>("#search-this-area");
     this.map = mapInstance;
     this.initMapMoveHandler();
@@ -689,7 +693,7 @@ class SearchThisAreaController {
 // FAB Buttons
 // ============================================================================
 
-function initFabButtons(map: ReturnType<typeof initMap>) {
+function initFabButtons(map: MapController) {
   const fabNearMe = getElement<HTMLButtonElement>("#fab-near-me");
   const fabAdd = getElement<HTMLButtonElement>("#fab-add");
 
@@ -714,8 +718,9 @@ function initFabButtons(map: ReturnType<typeof initMap>) {
     );
   });
 
-  // Add Station button
-  fabAdd.addEventListener("click", openAddStation);
+  fabAdd.addEventListener("click", () => {
+    void openAddStationOverlay();
+  });
 }
 
 // ============================================================================
@@ -792,7 +797,7 @@ function initBottomNav() {
 // ============================================================================
 
 // Global reference to map instance
-let mapInstance: ReturnType<typeof initMap> | null = null;
+let mapInstance: MapController | null = null;
 
 async function loadStationsAtLocation(lng: number, lat: number) {
   if (!mapInstance) return;
@@ -811,7 +816,7 @@ async function loadStationsAtLocation(lng: number, lat: number) {
   }
 }
 
-function requestGeolocation(map: ReturnType<typeof initMap>) {
+function requestGeolocation(map: MapController) {
   navigator.geolocation.getCurrentPosition(
     (pos) => {
       const { latitude, longitude } = pos.coords;
@@ -852,7 +857,7 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
 // Main Entry Point
 // ============================================================================
 
-function main() {
+async function main() {
   // Render app shell
   renderAppShell();
   initLegendToggle();
@@ -863,6 +868,7 @@ function main() {
   initializeAuth();
 
   // Initialize map
+  const { initMap } = await import("./map");
   mapInstance = initMap("map");
   setMapInstance(mapInstance);
   mapInstance.onVisibleStationsChange((count) => {
