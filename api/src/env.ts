@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  FRONTEND_URL: z.string().url("FRONTEND_URL must be a valid URL"),
   MAPBOX_SECRET_TOKEN: z.string().min(1, "MAPBOX_SECRET_TOKEN is required"),
   UPSTASH_REDIS_REST_URL: z
     .string()
