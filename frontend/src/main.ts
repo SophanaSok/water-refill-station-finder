@@ -20,6 +20,8 @@ import "./styles/components.css";
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 
+const NEARBY_SEARCH_RADII_METERS = [8047, 16093, 32187];
+
 function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
   const firstFeature = geojson.features[0];
   const stationId = firstFeature?.properties?.id;
@@ -33,6 +35,41 @@ async function openNearestStationIfAvailable(geojson: Awaited<ReturnType<typeof 
   }
 
   await handleMapClick(nearestStationId);
+}
+
+function showNoNearbyStationsMessage() {
+  const sheet = document.querySelector<HTMLElement>(".bottom-sheet");
+  const content = sheet?.querySelector<HTMLElement>(".content");
+  if (!sheet || !content) {
+    return;
+  }
+
+  sheet.setAttribute("data-state", "half");
+  content.innerHTML = `
+    <article class="station-card">
+      <div class="skeleton" style="width: 100%; aspect-ratio: 1 / 1;"></div>
+      <div>
+        <h2 style="font-size: var(--text-md);">No nearby stations found</h2>
+        <p style="color: var(--color-text-muted); margin-top: var(--space-1);">
+          We searched up to 20 miles from your location. Try moving the map and tapping Search this area.
+        </p>
+      </div>
+    </article>
+  `;
+}
+
+async function fetchStationsWithNearbyFallback(lat: number, lng: number) {
+  let lastResult: Awaited<ReturnType<typeof fetchStations>> | null = null;
+
+  for (const radius of NEARBY_SEARCH_RADII_METERS) {
+    const geojson = await fetchStations({ lat, lng, radius });
+    lastResult = geojson;
+    if (geojson.features.length > 0) {
+      return geojson;
+    }
+  }
+
+  return lastResult ?? (await fetchStations({ lat, lng }));
 }
 
 function setOfflineBanner(offline: boolean) {
@@ -473,8 +510,13 @@ class SearchBarController {
 
   private async loadStationsAtLocation(lng: number, lat: number) {
     try {
-      const geojson = await fetchStations({ lng, lat });
+      const geojson = await fetchStationsWithNearbyFallback(lat, lng);
       this.map.loadStations(geojson);
+      await openNearestStationIfAvailable(geojson);
+
+      if (geojson.features.length === 0) {
+        showNoNearbyStationsMessage();
+      }
     } catch (error) {
       console.error("Failed to load stations:", error);
     }
@@ -578,9 +620,12 @@ class SearchThisAreaController {
       const center = this.map.getCurrentCenter();
       try {
         isSearchingThisArea = true;
-        const geojson = await fetchStations({ lat: center.lat, lng: center.lng });
+        const geojson = await fetchStationsWithNearbyFallback(center.lat, center.lng);
         this.map.loadStations(geojson);
         await openNearestStationIfAvailable(geojson);
+        if (geojson.features.length === 0) {
+          showNoNearbyStationsMessage();
+        }
         this.button.style.display = "none";
         isSearchingThisArea = false;
       } catch (error) {
@@ -678,9 +723,12 @@ async function loadStationsAtLocation(lng: number, lat: number) {
   if (!mapInstance) return;
   try {
     isSearchingThisArea = true;
-    const geojson = await fetchStations({ lat, lng });
+    const geojson = await fetchStationsWithNearbyFallback(lat, lng);
     mapInstance.loadStations(geojson);
     await openNearestStationIfAvailable(geojson);
+    if (geojson.features.length === 0) {
+      showNoNearbyStationsMessage();
+    }
     isSearchingThisArea = false;
   } catch (error) {
     console.error("Failed to load stations:", error);
@@ -705,9 +753,12 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
       // Load stations at user location
       (async () => {
         try {
-          const geojson = await fetchStations({ lat: latitude, lng: longitude });
+          const geojson = await fetchStationsWithNearbyFallback(latitude, longitude);
           map.loadStations(geojson);
           await openNearestStationIfAvailable(geojson);
+          if (geojson.features.length === 0) {
+            showNoNearbyStationsMessage();
+          }
         } catch (error) {
           console.error("Failed to load stations:", error);
         }
