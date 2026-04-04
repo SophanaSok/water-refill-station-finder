@@ -12,6 +12,8 @@ build/
 api/.env
 api/.env.*
 !api/.env.example
+frontend/.env.local
+!frontend/.env.example
 
 # Editor directories and files
 .vscode/
