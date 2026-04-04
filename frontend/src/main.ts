@@ -5,8 +5,6 @@ import { initializeAuth } from "./auth";
 import { trackPlausible } from "./analytics";
 import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
 import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
-import { openProfileSheet } from "./profile";
-import { openSavedStationsSheet, setMapInstance, setLastGeolocation } from "./savedStations";
 import { showStationDetailLoading } from "./stationDetail";
 import "./styles/tokens.css";
 import "./styles/base.css";
@@ -18,6 +16,8 @@ import "./styles/components.css";
 
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
+let savedStationsModulePromise: Promise<typeof import("./savedStations")> | null = null;
+let profileModulePromise: Promise<typeof import("./profile")> | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 
@@ -59,6 +59,36 @@ function showNoNearbyStationsMessage() {
 
 async function fetchStationsWithNearbyFallback(lat: number, lng: number) {
   return fetchStations({ lat, lng, radius: NEARBY_SEARCH_RADIUS_METERS });
+}
+
+function getSavedStationsModule() {
+  savedStationsModulePromise ??= import("./savedStations");
+  return savedStationsModulePromise;
+}
+
+function getProfileModule() {
+  profileModulePromise ??= import("./profile");
+  return profileModulePromise;
+}
+
+async function setSavedStationsMapInstance(map: MapController) {
+  const { setMapInstance } = await getSavedStationsModule();
+  setMapInstance(map);
+}
+
+async function setSavedStationsLastGeolocation(lat: number, lng: number) {
+  const { setLastGeolocation } = await getSavedStationsModule();
+  setLastGeolocation(lat, lng);
+}
+
+async function openSavedStationsOverlay() {
+  const { openSavedStationsSheet } = await getSavedStationsModule();
+  openSavedStationsSheet();
+}
+
+async function openProfileOverlay() {
+  const { openProfileSheet } = await getProfileModule();
+  openProfileSheet();
 }
 
 function setOfflineBanner(offline: boolean) {
@@ -703,7 +733,7 @@ function initFabButtons(map: MapController) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         lastGeolocationResult = { lat: latitude, lng: longitude };
-        setLastGeolocation(latitude, longitude);
+        void setSavedStationsLastGeolocation(latitude, longitude);
 
         // Update user location for stationDetail distance calculations
         updateUserLocation(latitude, longitude);
@@ -771,7 +801,7 @@ function initBottomNav() {
     tabs.saved.setAttribute("aria-current", "page");
     tabs.map.removeAttribute("aria-current");
     tabs.search.removeAttribute("aria-current");
-    openSavedStationsSheet();
+    void openSavedStationsOverlay();
   });
 
   tabs.profile.addEventListener("click", () => {
@@ -781,7 +811,7 @@ function initBottomNav() {
     tabs.profile.setAttribute("aria-current", "page");
     tabs.map.removeAttribute("aria-current");
     tabs.search.removeAttribute("aria-current");
-    openProfileSheet();
+    void openProfileOverlay();
   });
 
   searchClose?.addEventListener("click", closeSearchMode);
@@ -821,7 +851,7 @@ function requestGeolocation(map: MapController) {
     (pos) => {
       const { latitude, longitude } = pos.coords;
       lastGeolocationResult = { lat: latitude, lng: longitude };
-      setLastGeolocation(latitude, longitude);
+      void setSavedStationsLastGeolocation(latitude, longitude);
 
       // Update user location for stationDetail distance calculations
       updateUserLocation(latitude, longitude);
@@ -870,7 +900,7 @@ async function main() {
   // Initialize map
   const { initMap } = await import("./map");
   mapInstance = initMap("map");
-  setMapInstance(mapInstance);
+  await setSavedStationsMapInstance(mapInstance);
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
   });
