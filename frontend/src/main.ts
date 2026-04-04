@@ -20,7 +20,7 @@ import "./styles/components.css";
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 
-const NEARBY_SEARCH_RADII_METERS = [8047, 16093, 32187];
+const NEARBY_SEARCH_RADIUS_METERS = 32187;
 
 function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
   const firstFeature = geojson.features[0];
@@ -59,17 +59,7 @@ function showNoNearbyStationsMessage() {
 }
 
 async function fetchStationsWithNearbyFallback(lat: number, lng: number) {
-  let lastResult: Awaited<ReturnType<typeof fetchStations>> | null = null;
-
-  for (const radius of NEARBY_SEARCH_RADII_METERS) {
-    const geojson = await fetchStations({ lat, lng, radius });
-    lastResult = geojson;
-    if (geojson.features.length > 0) {
-      return geojson;
-    }
-  }
-
-  return lastResult ?? (await fetchStations({ lat, lng }));
+  return fetchStations({ lat, lng, radius: NEARBY_SEARCH_RADIUS_METERS });
 }
 
 function setOfflineBanner(offline: boolean) {

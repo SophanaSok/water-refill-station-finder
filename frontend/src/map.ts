@@ -31,6 +31,13 @@ class MapControllerImpl {
   private hasLoadedStations = false;
   private userLocationInitialized = false;
   private readonly defaultRadiusMeters = 8047;
+  private stationsAbortController: AbortController | null = null;
+  private refetchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly stationsQueryCache = new globalThis.Map<
+    string,
+    { payload: StationFeatureCollection; expiresAt: number }
+  >();
+  private readonly stationsCacheTtlMs = 30_000;
 
   constructor(containerId: string) {
     this.map = new maplibregl.Map({
@@ -59,7 +66,6 @@ class MapControllerImpl {
 
     this.map.on("moveend", () => {
       this.mapMoveCallback(this.getCurrentCenter());
-      this.emitVisibleStationsCount();
     });
   }
 
@@ -81,8 +87,24 @@ class MapControllerImpl {
   }
 
   setFilter(filters: StationFilters): void {
-    this.currentFilters = { ...filters };
-    void this.refetchStations();
+    const nextFilters = { ...filters };
+    const unchanged =
+      this.currentFilters.type === nextFilters.type &&
+      this.currentFilters.is_free === nextFilters.is_free;
+
+    if (unchanged) {
+      return;
+    }
+
+    this.currentFilters = nextFilters;
+
+    if (this.refetchDebounceTimer) {
+      clearTimeout(this.refetchDebounceTimer);
+    }
+
+    this.refetchDebounceTimer = setTimeout(() => {
+      void this.refetchStations();
+    }, 120);
   }
 
   showUserLocation(lng: number, lat: number): void {
@@ -299,16 +321,14 @@ class MapControllerImpl {
       return;
     }
 
-    if (!this.map.isStyleLoaded()) {
-      this.visibleStationsCallback(0);
-      return;
-    }
-
-    const rendered = this.map.queryRenderedFeatures({ layers: ["clusters", "unclustered-point"] });
-    this.visibleStationsCallback(rendered.length);
+    const loadedCount = this.pendingData?.features.length ?? 0;
+    this.visibleStationsCallback(loadedCount);
   }
 
   private async refetchStations(): Promise<void> {
+    this.stationsAbortController?.abort();
+    this.stationsAbortController = new AbortController();
+
     const center = this.getCurrentCenter();
     const params = new URLSearchParams({
       lat: String(center.lat),
@@ -325,16 +345,36 @@ class MapControllerImpl {
       params.set("is_free", String(this.currentFilters.is_free));
     }
 
+    const cacheKey = params.toString();
+    const cached = this.stationsQueryCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      this.loadStations(cached.payload);
+      this.stationsAbortController = null;
+      return;
+    }
+
     try {
-      const response = await fetch(`/api/stations?${params.toString()}`);
+      const response = await fetch(`/api/stations?${params.toString()}`, {
+        signal: this.stationsAbortController.signal,
+      });
       if (!response.ok) {
         return;
       }
 
       const payload = (await response.json()) as FeatureCollection;
-      this.loadStations(payload);
-    } catch {
+      const typedPayload = payload as StationFeatureCollection;
+      this.stationsQueryCache.set(cacheKey, {
+        payload: typedPayload,
+        expiresAt: Date.now() + this.stationsCacheTtlMs,
+      });
+      this.loadStations(typedPayload);
+    } catch (error) {
+      if (error instanceof DOMException && error.name === "AbortError") {
+        return;
+      }
       return;
+    } finally {
+      this.stationsAbortController = null;
     }
   }
 }
