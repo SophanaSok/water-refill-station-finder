@@ -1,7 +1,11 @@
 import "dotenv/config";
 import { neon } from "@neondatabase/serverless";
 
-const OVERPASS_ENDPOINT = "https://overpass-api.de/api/interpreter";
+const OVERPASS_ENDPOINTS = [
+  "https://overpass-api.de/api/interpreter",
+  "https://overpass.kumi.systems/api/interpreter",
+  "https://lz4.overpass-api.de/api/interpreter",
+];
 const OVERPASS_QUERY = `[out:json][timeout:60];
 area["ISO3166-1"="US"][admin_level=2]->.usa;
 node(area.usa)["amenity"="drinking_water"];
@@ -103,19 +107,34 @@ function mapNodeToStation(node: OverpassNode): SeedStation {
 }
 
 async function fetchOverpassStations(): Promise<OverpassNode[]> {
-  const response = await fetch(OVERPASS_ENDPOINT, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
-    },
-    body: new URLSearchParams({ data: OVERPASS_QUERY }),
-  });
+  let payload: OverpassResponse | null = null;
+  let lastError: unknown = null;
 
-  if (!response.ok) {
-    throw new Error(`Overpass request failed with status ${response.status}`);
+  for (const endpoint of OVERPASS_ENDPOINTS) {
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded; charset=utf-8",
+        },
+        body: new URLSearchParams({ data: OVERPASS_QUERY }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Overpass request failed with status ${response.status}`);
+      }
+
+      payload = (await response.json()) as OverpassResponse;
+      break;
+    } catch (error) {
+      lastError = error;
+      console.warn(`Overpass endpoint failed: ${endpoint}`);
+    }
   }
 
-  const payload = (await response.json()) as OverpassResponse;
+  if (!payload) {
+    throw new Error(`All Overpass endpoints failed. Last error: ${String(lastError)}`);
+  }
 
   if (!Array.isArray(payload.elements)) {
     throw new Error("Unexpected Overpass response shape");
