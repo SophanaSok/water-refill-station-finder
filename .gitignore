@@ -9,6 +9,9 @@ build/
 .env
 .env.local
 .env.*.local
+api/.env
+api/.env.*
+!api/.env.example
 
 # Editor directories and files
 .vscode/
