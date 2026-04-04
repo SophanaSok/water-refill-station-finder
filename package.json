@@ -1,0 +1,19 @@
+{
+  "name": "water-refill-app",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "api",
+    "scripts"
+  ],
+  "scripts": {
+    "dev:frontend": "npm -w frontend run dev",
+    "dev:api": "npm -w api run dev",
+    "build:frontend": "npm -w frontend run build",
+    "build:api": "npm -w api run build"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
