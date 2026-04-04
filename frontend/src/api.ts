@@ -111,7 +111,17 @@ async function apiFetch<T>(
     delete options.params;
   }
 
-  const response = await fetch(url.toString(), options);
+  // Add auth token if available
+  const headers = new Headers(options?.headers);
+  const authToken = localStorage.getItem("auth_token");
+  if (authToken) {
+    headers.set("Authorization", `Bearer ${authToken}`);
+  }
+
+  const response = await fetch(url.toString(), {
+    ...options,
+    headers,
+  });
 
   if (!response.ok) {
     let errorMessage = `API error: ${response.status}`;

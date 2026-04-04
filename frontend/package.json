@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "better-auth": "^1.5.6",
     "maplibre-gl": "^4.5.0"
   },
   "devDependencies": {

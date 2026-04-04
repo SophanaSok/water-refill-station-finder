@@ -1,5 +1,7 @@
 import { confirmStation, flagStation } from "./api";
 import type { StationDetail } from "./api";
+import { isAuthenticated } from "./auth";
+import { openAuthModal } from "./authModal";
 
 // ============================================================================
 // Module State
@@ -460,6 +462,12 @@ async function handleConfirmation(isWorking: boolean, sheet: HTMLElement): Promi
 
 function handleSaveStation(btn: Element): void {
   if (!currentStation) return;
+
+  // Require authentication to save stations
+  if (!isAuthenticated()) {
+    openAuthModal();
+    return;
+  }
 
   const isSaved = savedStationIds.has(currentStation.id);
 
