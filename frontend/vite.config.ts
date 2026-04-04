@@ -1,6 +1,10 @@
 import { defineConfig } from "vite";
 
 export default defineConfig({
+  base: "/",
+  esbuild: {
+    target: "es2020",
+  },
   build: {
     target: "es2020",
     outDir: "dist",
@@ -25,8 +29,6 @@ export default defineConfig({
     },
   },
   define: {
-    "import.meta.env.VITE_API_URL": JSON.stringify(
-      process.env.VITE_API_URL || "http://localhost:3000"
-    ),
+    "import.meta.env.VITE_API_URL": JSON.stringify(process.env.VITE_API_URL || "http://localhost:3000"),
   },
 });
