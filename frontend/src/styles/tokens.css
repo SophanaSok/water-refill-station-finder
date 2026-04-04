@@ -1,0 +1,98 @@
+:root {
+  color-scheme: light dark;
+
+  --font-family: "Satoshi", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --text-xs: clamp(0.75rem, 0.72rem + 0.1vw, 0.8125rem);
+  --text-sm: clamp(0.875rem, 0.84rem + 0.12vw, 0.9375rem);
+  --text-md: clamp(1rem, 0.96rem + 0.18vw, 1.125rem);
+  --text-lg: clamp(1.25rem, 1.18rem + 0.35vw, 1.5rem);
+  --text-xl: clamp(1.5rem, 1.35rem + 0.8vw, 2rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+  --space-9: 2.25rem;
+  --space-10: 2.5rem;
+  --space-11: 2.75rem;
+  --space-12: 3rem;
+  --space-13: 3.25rem;
+  --space-14: 3.5rem;
+  --space-15: 3.75rem;
+  --space-16: 4rem;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 999px;
+
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+
+  --color-primary: #01696f;
+  --color-primary-contrast: #f1fffe;
+
+  --shadow-sm: 0 2px 8px rgb(88 74 57 / 0.14);
+  --shadow-md: 0 10px 24px rgb(88 74 57 / 0.16);
+  --shadow-lg: 0 18px 40px rgb(88 74 57 / 0.2);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-bg: #f7f3ee;
+    --color-surface: #fffaf5;
+    --color-surface-elevated: #fff;
+    --color-border: #ddcec0;
+    --color-text: #2f2a25;
+    --color-text-muted: #60564d;
+    --color-badge: #d8eeef;
+    --color-overlay: rgb(45 36 27 / 0.38);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #171717;
+    --color-surface: #1f1f1f;
+    --color-surface-elevated: #292929;
+    --color-border: #3b3b3b;
+    --color-text: #f2eee8;
+    --color-text-muted: #c1b7ab;
+    --color-primary: #30acb3;
+    --color-primary-contrast: #042a2d;
+    --color-badge: #183639;
+    --color-overlay: rgb(10 10 10 / 0.56);
+  }
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-bg: #f7f3ee;
+  --color-surface: #fffaf5;
+  --color-surface-elevated: #fff;
+  --color-border: #ddcec0;
+  --color-text: #2f2a25;
+  --color-text-muted: #60564d;
+  --color-primary: #01696f;
+  --color-primary-contrast: #f1fffe;
+  --color-badge: #d8eeef;
+  --color-overlay: rgb(45 36 27 / 0.38);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: #171717;
+  --color-surface: #1f1f1f;
+  --color-surface-elevated: #292929;
+  --color-border: #3b3b3b;
+  --color-text: #f2eee8;
+  --color-text-muted: #c1b7ab;
+  --color-primary: #30acb3;
+  --color-primary-contrast: #042a2d;
+  --color-badge: #183639;
+  --color-overlay: rgb(10 10 10 / 0.56);
+}
