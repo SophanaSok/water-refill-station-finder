@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
+import { randomUUID } from "node:crypto";
 import { env } from "./env.js";
 import { sql } from "./db/client.js";
 import stationsRoutes from "./routes/stations.js";
@@ -18,7 +19,19 @@ export type AppOptions = {
 
 export function buildApp(options: AppOptions = {}) {
   const server = Fastify({
-    logger: env.NODE_ENV !== "production",
+    logger: {
+      level: env.NODE_ENV === "production" ? "info" : "debug",
+      redact: [
+        "req.headers.authorization",
+        "req.headers.cookie",
+        "req.headers.x-admin-key",
+      ],
+    },
+    genReqId: (request) => {
+      const incomingId = request.headers["x-request-id"];
+      return typeof incomingId === "string" && incomingId.trim().length > 0 ? incomingId : randomUUID();
+    },
+    requestIdHeader: "x-request-id",
     trustProxy: true,
   });
 
@@ -48,6 +61,30 @@ export function buildApp(options: AppOptions = {}) {
         "Slow request detected",
       );
     }
+  });
+
+  server.setNotFoundHandler((request, reply) => {
+    request.log.info({ method: request.method, url: request.url }, "Route not found");
+    reply.code(404).send({ error: "Not found" });
+  });
+
+  server.setErrorHandler((error, request, reply) => {
+    request.log.error(
+      {
+        err: error,
+        method: request.method,
+        url: request.url,
+        requestId: request.id,
+      },
+      "Unhandled request error",
+    );
+
+    const statusCode = reply.statusCode >= 400 ? reply.statusCode : 500;
+    const message = error instanceof Error ? error.message : "Unknown error";
+    reply.code(statusCode).send({
+      error: statusCode >= 500 ? "Internal Server Error" : message,
+      request_id: request.id,
+    });
   });
 
   void server.register(cors, {
