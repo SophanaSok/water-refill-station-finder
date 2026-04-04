@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test, { beforeEach, afterEach } from "node:test";
-import { clearRateLimitBuckets } from "../src/lib/rateLimit.js";
 
 const requiredEnv: Record<string, string> = {
   DATABASE_URL: "postgresql://user:password@host.tld/dbname?sslmode=require",
@@ -25,6 +24,8 @@ const requiredEnv: Record<string, string> = {
 for (const [key, value] of Object.entries(requiredEnv)) {
   process.env[key] = value;
 }
+
+const { clearRateLimitBuckets } = await import("../src/lib/rateLimit.js");
 
 const fakeRows = [
   {

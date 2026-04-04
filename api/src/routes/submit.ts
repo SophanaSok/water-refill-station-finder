@@ -166,7 +166,7 @@ const submitRoutes: FastifyPluginAsync = async (server) => {
     "/",
     {
       preHandler: async (request, reply) => {
-        const result = consumeRateLimit(`submit:${request.ip}`, 10, 60_000);
+        const result = await consumeRateLimit(`submit:${request.ip}`, 10, 60_000);
         reply.header("x-ratelimit-limit", "10");
         reply.header("x-ratelimit-remaining", String(result.remaining));
         reply.header("x-ratelimit-reset", String(Math.ceil(result.resetAt / 1000)));

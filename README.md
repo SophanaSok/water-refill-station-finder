@@ -64,6 +64,8 @@ The bootstrap script applies [api/src/db/schema.sql](api/src/db/schema.sql) firs
 
 The API exposes a readiness endpoint at `/ready` that checks the database and reports degraded cache state separately.
 
+Public write/search routes use Redis-backed rate limiting in production and fall back to in-memory limits when Redis is unavailable or disabled in test environments.
+
 ## Deployment
 
 ### Render API

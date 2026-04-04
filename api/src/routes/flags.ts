@@ -60,7 +60,7 @@ const flagsRoutes: FastifyPluginAsync = async (server) => {
     "/",
     {
       preHandler: async (request, reply) => {
-        const result = consumeRateLimit(`flags:${request.ip}`, 20, 60_000);
+        const result = await consumeRateLimit(`flags:${request.ip}`, 20, 60_000);
         reply.header("x-ratelimit-limit", "20");
         reply.header("x-ratelimit-remaining", String(result.remaining));
         reply.header("x-ratelimit-reset", String(Math.ceil(result.resetAt / 1000)));
