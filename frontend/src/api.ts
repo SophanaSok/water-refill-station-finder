@@ -24,6 +24,9 @@ export interface Station {
  * Extended station details returned by GET /api/stations/:id
  */
 export interface StationDetail extends Station {
+  latitude: number;
+  longitude: number;
+  photo_url?: string | null;
   working_count: number;
   not_working_count: number;
   created_at: string;

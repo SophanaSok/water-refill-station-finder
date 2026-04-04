@@ -1,6 +1,6 @@
 import { initMap } from "./map";
-import { fetchStations, geocodeSearch, fetchStationById, confirmStation } from "./api";
-import type { StationDetail } from "./api";
+import { fetchStations, geocodeSearch, fetchStationById } from "./api";
+import { openStationDetail, updateUserLocation } from "./stationDetail";
 import "./styles/tokens.css";
 import "./styles/base.css";
 import "./styles/components.css";
@@ -9,7 +9,6 @@ import "./styles/components.css";
 // UI State
 // ============================================================================
 
-let currentStation: StationDetail | null = null;
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 
@@ -151,54 +150,14 @@ function renderAppShell() {
 // Station Detail View
 // ============================================================================
 
-async function openStationDetail(stationId: string) {
+// ============================================================================
+// Station Detail Loader
+// ============================================================================
+
+async function handleMapClick(stationId: string) {
   try {
     const station = await fetchStationById(stationId);
-    currentStation = station;
-
-    const card = getElement<HTMLDivElement>("#station-card");
-    const confirmBar = getElement<HTMLDivElement>(".confirmation-bar");
-
-    // Render station card
-    card.innerHTML = `
-      <div style="width: 100%; aspect-ratio: 1 / 1; background: var(--color-bg-secondary); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; color: var(--color-text-muted); font-size: var(--text-xs);">
-        📍 ${station.type.replace(/_/g, " ").toUpperCase()}
-      </div>
-      <div>
-        <h2 style="font-size: var(--text-lg);">${station.name}</h2>
-        <p style="font-size: var(--text-sm); color: var(--color-text-muted); margin-top: var(--space-1);">
-          ${station.address}, ${station.city}, ${station.state}
-        </p>
-        <div class="meta">
-          <span class="badge">${station.is_free ? "Free" : "Paid"}</span>
-          <span class="badge">${station.is_verified ? "Verified" : "To be verified"}</span>
-        </div>
-      </div>
-    `;
-
-    // Render confirmation bar
-    confirmBar.innerHTML = `
-      <div>
-        <strong>Working status</strong>
-        <p style="font-size: var(--text-xs); color: var(--color-text-muted); margin-top: var(--space-1);">
-          ${station.working_count} working • ${station.not_working_count} not working
-        </p>
-      </div>
-      <div style="display: flex; gap: var(--space-2);">
-        <button class="btn-secondary" style="flex: 1;" data-confirm="false" data-station-id="${station.id}">
-          ❌ Not working
-        </button>
-        <button class="btn-primary" style="flex: 1;" data-confirm="true" data-station-id="${station.id}">
-          ✅ Working
-        </button>
-      </div>
-    `;
-
-    // Update bottom sheet state and scroll to peek
-    const bottomSheet = getElement<HTMLDivElement>(".bottom-sheet");
-    bottomSheet.setAttribute("data-state", "half");
-    bottomSheet.scrollTop = 0;
-
+    openStationDetail(station);
   } catch (error) {
     console.error("Failed to load station details:", error);
   }
@@ -496,6 +455,10 @@ function initFabButtons(map: ReturnType<typeof initMap>) {
       (pos) => {
         const { latitude, longitude } = pos.coords;
         lastGeolocationResult = { lat: latitude, lng: longitude };
+
+        // Update user location for stationDetail distance calculations
+        updateUserLocation(latitude, longitude);
+
         map.flyTo(longitude, latitude, 14);
         map.showUserLocation(longitude, latitude);
         loadStationsAtLocation(longitude, latitude);
@@ -556,28 +519,6 @@ function initBottomNav() {
 }
 
 // ============================================================================
-// Confirmation Buttons Handler
-// ============================================================================
-
-function initConfirmationHandlers() {
-  document.addEventListener("click", async (e) => {
-    const btn = (e.target as HTMLElement).closest("[data-confirm]");
-    if (!btn || !currentStation) return;
-
-    const isWorking = btn.getAttribute("data-confirm") === "true";
-    try {
-      await confirmStation(currentStation.id, isWorking);
-      const bottomSheet = getElement<HTMLDivElement>(".bottom-sheet");
-      bottomSheet.setAttribute("data-state", "peek");
-      // Optionally refetch station to show updated counts
-      await openStationDetail(currentStation.id);
-    } catch (error) {
-      console.error("Failed to submit confirmation:", error);
-    }
-  });
-}
-
-// ============================================================================
 // Geolocation & Initial Load
 // ============================================================================
 
@@ -599,6 +540,9 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
     (pos) => {
       const { latitude, longitude } = pos.coords;
       lastGeolocationResult = { lat: latitude, lng: longitude };
+
+      // Update user location for stationDetail distance calculations
+      updateUserLocation(latitude, longitude);
 
       // Fly to user location
       map.flyTo(longitude, latitude, 14);
@@ -649,12 +593,9 @@ function main() {
   // Initialize bottom nav tabs
   initBottomNav();
 
-  // Initialize confirmation handlers
-  initConfirmationHandlers();
-
   // Connect map station click to detail view
   mapInstance.onStationClick((stationId) => {
-    openStationDetail(stationId);
+    handleMapClick(stationId);
   });
 }
 
