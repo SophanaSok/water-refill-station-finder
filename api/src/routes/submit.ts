@@ -202,42 +202,52 @@ const submitRoutes: FastifyPluginAsync = async (server) => {
 
     const [inserted] = (await server.db(
       `
-        INSERT INTO stations (
-          name,
-          type,
-          location,
-          address,
-          city,
-          state,
-          zip,
-          is_free,
-          cost_description,
-          photo_url,
-          status,
-          source,
-          is_verified,
-          added_by,
-          owner_id,
-          is_featured
-        ) VALUES (
-          $1,
-          $2,
-          ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
-          $5,
-          $6,
-          $7,
-          $8,
-          $9,
-          $10,
-          $11,
-          'pending',
-          'crowdsource',
-          false,
-          NULL,
-          NULL,
-          false
+        WITH inserted_station AS (
+          INSERT INTO stations (
+            name,
+            type,
+            location,
+            address,
+            city,
+            state,
+            zip,
+            is_free,
+            cost_description,
+            photo_url,
+            status,
+            source,
+            is_verified,
+            added_by,
+            owner_id,
+            is_featured
+          ) VALUES (
+            $1,
+            $2,
+            ST_SetSRID(ST_MakePoint($3, $4), 4326)::geography,
+            $5,
+            $6,
+            $7,
+            $8,
+            $9,
+            $10,
+            $11,
+            'pending',
+            'crowdsource',
+            false,
+            NULL,
+            NULL,
+            false
+          )
+          RETURNING id
+        ),
+        inserted_submission AS (
+          INSERT INTO station_submissions (station_id, submitter_email)
+          SELECT id, $12
+          FROM inserted_station
+          RETURNING station_id
         )
-        RETURNING id
+        SELECT station_id AS id
+        FROM inserted_submission
       `,
       [
         data.name,
@@ -251,6 +261,7 @@ const submitRoutes: FastifyPluginAsync = async (server) => {
         data.is_free,
         data.cost_description,
         photoUrl,
+        data.submitter_email,
       ],
     )) as Array<{ id: string }>;
 

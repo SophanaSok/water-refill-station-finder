@@ -58,6 +58,13 @@ CREATE TABLE IF NOT EXISTS flags (
   flagged_at TIMESTAMPTZ DEFAULT now()
 );
 
+CREATE TABLE IF NOT EXISTS station_submissions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  station_id UUID NOT NULL REFERENCES stations(id) ON DELETE CASCADE,
+  submitter_email TEXT NOT NULL,
+  submitted_at TIMESTAMPTZ DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_stations_location_gist
   ON stations USING GIST (location);
 
@@ -73,6 +80,9 @@ CREATE INDEX IF NOT EXISTS idx_confirmations_station_id
 CREATE INDEX IF NOT EXISTS idx_flags_station_id_unresolved
   ON flags USING btree (station_id)
   WHERE resolved = false;
+
+CREATE INDEX IF NOT EXISTS idx_station_submissions_station_id
+  ON station_submissions USING btree (station_id);
 
 CREATE OR REPLACE FUNCTION set_stations_updated_at()
 RETURNS trigger
