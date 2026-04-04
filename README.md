@@ -77,10 +77,20 @@ Public write/search routes use Redis-backed rate limiting in production and fall
 
 ### Cloudflare Pages Frontend
 
-1. Deploy the `frontend` directory as the Pages project.
-2. Use the Vite build command and publish `frontend/dist`.
-3. Keep [frontend/public/_redirects](frontend/public/_redirects) so direct client-side routes resolve to `index.html`.
-4. Set `VITE_API_URL` to the Render API URL in the Pages build environment.
+1. Create the Pages project from the `frontend` directory.
+2. Set the build command to `npm run build`.
+3. Set the output directory to `dist`.
+4. Leave the Pages deploy command fields blank in the dashboard.
+5. Keep [frontend/public/_redirects](frontend/public/_redirects) so direct client-side routes resolve to `index.html`.
+6. Set `VITE_API_URL` to the Render API URL in the Pages build environment.
+
+If you need a CLI deploy command, use:
+
+```bash
+npm run deploy:pages
+```
+
+That maps to `wrangler pages deploy dist --project-name water-refill-station-finder`.
 
 ## Environment Variables
 
