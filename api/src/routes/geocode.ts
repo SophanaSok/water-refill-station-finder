@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import { env } from "../env.js";
 import { getCached, setCached } from "../cache/redis.js";
+import { consumeRateLimit } from "../lib/rateLimit.js";
 
 type GeocodeQuery = {
   q: string;
@@ -111,6 +112,16 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Querystring: GeocodeQuery }>(
     "/",
     {
+      preHandler: async (request, reply) => {
+        const result = consumeRateLimit(`geocode:${request.ip}`, 30, 60_000);
+        reply.header("x-ratelimit-limit", "30");
+        reply.header("x-ratelimit-remaining", String(result.remaining));
+        reply.header("x-ratelimit-reset", String(Math.ceil(result.resetAt / 1000)));
+
+        if (!result.allowed) {
+          return reply.code(429).send({ error: "Too many requests" });
+        }
+      },
       schema: {
         querystring: geocodeQuerySchema,
         response: {

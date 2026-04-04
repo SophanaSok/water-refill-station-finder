@@ -14,7 +14,8 @@
     "build:api": "npm -w api run build",
     "build": "npm run build:api && npm run build:frontend",
     "db:bootstrap": "npm -w scripts run run-script -- bootstrap-db.ts",
-    "check": "npm run build"
+    "check": "npm run build",
+    "test": "npm -w api run test"
   },
   "engines": {
     "node": ">=18.0.0"

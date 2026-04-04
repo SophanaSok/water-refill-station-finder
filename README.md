@@ -37,6 +37,13 @@ Water Refill Station Finder is a full-stack app for discovering, confirming, and
 	npm run dev:frontend
 	```
 
+5. Run the repo checks before shipping changes:
+
+	```bash
+	npm run build
+	npm test
+	```
+
 ## OSM Import
 
 The initial seed script lives in [scripts/osm-import.ts](scripts/osm-import.ts). It pulls drinking-water nodes from OpenStreetMap’s Overpass API and upserts them into `stations`.
@@ -54,6 +61,8 @@ npm -w scripts run run-script -- osm-import.ts
 ```
 
 The bootstrap script applies [api/src/db/schema.sql](api/src/db/schema.sql) first, then seeds stations.
+
+The API exposes a readiness endpoint at `/ready` that checks the database and reports degraded cache state separately.
 
 ## Deployment
 
@@ -123,4 +132,5 @@ npm run build:api
 npm run build:frontend
 npm run build
 npm run db:bootstrap
+npm test
 ```

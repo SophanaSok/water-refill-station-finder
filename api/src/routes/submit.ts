@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { geocodeAddress } from "../lib/geocodeAddress.js";
 import { uploadToR2 } from "../lib/r2.js";
+import { consumeRateLimit } from "../lib/rateLimit.js";
 
 type StationType = "fountain" | "bottle_filler" | "store_refill" | "tap";
 
@@ -161,7 +162,21 @@ async function parseMultipart(request: FastifyRequest): Promise<{
 }
 
 const submitRoutes: FastifyPluginAsync = async (server) => {
-  server.post("/", async (request, reply) => {
+  server.post(
+    "/",
+    {
+      preHandler: async (request, reply) => {
+        const result = consumeRateLimit(`submit:${request.ip}`, 10, 60_000);
+        reply.header("x-ratelimit-limit", "10");
+        reply.header("x-ratelimit-remaining", String(result.remaining));
+        reply.header("x-ratelimit-reset", String(Math.ceil(result.resetAt / 1000)));
+
+        if (!result.allowed) {
+          return reply.code(429).send({ error: "Too many requests" });
+        }
+      },
+    },
+    async (request, reply) => {
     const { fields, photo } = await parseMultipart(request);
     const { errors, data } = validateFields(fields);
 
@@ -270,7 +285,8 @@ const submitRoutes: FastifyPluginAsync = async (server) => {
       id: inserted.id,
       message: "Thank you! Your submission is under review.",
     });
-  });
+    },
+  );
 };
 
 export default submitRoutes;

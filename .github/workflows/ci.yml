@@ -25,3 +25,6 @@ jobs:
 
       - name: Build API and frontend
         run: npm run build
+
+      - name: Run API smoke tests
+        run: npm run test

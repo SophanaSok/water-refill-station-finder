@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import crypto from "node:crypto";
 import { redis } from "../cache/redis.js";
+import { consumeRateLimit } from "../lib/rateLimit.js";
 
 type ConfirmBody = {
   station_id: string;
@@ -107,6 +108,16 @@ const confirmRoutes: FastifyPluginAsync = async (server) => {
   server.post<{ Body: ConfirmBody; Headers: ConfirmHeaders }>(
     "/",
     {
+      preHandler: async (request, reply) => {
+        const result = consumeRateLimit(`confirm:${request.ip}`, 20, 60_000);
+        reply.header("x-ratelimit-limit", "20");
+        reply.header("x-ratelimit-remaining", String(result.remaining));
+        reply.header("x-ratelimit-reset", String(Math.ceil(result.resetAt / 1000)));
+
+        if (!result.allowed) {
+          return reply.code(429).send({ error: "Too many requests" });
+        }
+      },
       schema: {
         body: confirmBodySchema,
         headers: confirmHeadersSchema,
