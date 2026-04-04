@@ -17,7 +17,13 @@ Water Refill Station Finder is a full-stack app for discovering, confirming, and
 	npm install
 	```
 
-2. Create `api/.env` with the API variables listed below.
+2. Copy the example env files and fill in real values.
+
+	```bash
+	cp .env.example .env
+	cp api/.env.example api/.env
+	```
+
 3. Set `VITE_API_URL` in your shell before running the frontend, for example:
 
 	```bash
@@ -35,13 +41,19 @@ Water Refill Station Finder is a full-stack app for discovering, confirming, and
 
 The initial seed script lives in [scripts/osm-import.ts](scripts/osm-import.ts). It pulls drinking-water nodes from OpenStreetMap’s Overpass API and upserts them into `stations`.
 
-Run it from the repo root after `DATABASE_URL` is available:
+Run the full database bootstrap from the repo root after `DATABASE_URL` is available:
+
+```bash
+npm run db:bootstrap
+```
+
+If you only need to refresh the OSM seed data, run:
 
 ```bash
 npm -w scripts run run-script -- osm-import.ts
 ```
 
-The script requires direct access to the Neon database and the schema to be loaded first.
+The bootstrap script applies [api/src/db/schema.sql](api/src/db/schema.sql) first, then seeds stations.
 
 ## Deployment
 
@@ -109,4 +121,6 @@ npm run dev:api
 npm run dev:frontend
 npm run build:api
 npm run build:frontend
+npm run build
+npm run db:bootstrap
 ```

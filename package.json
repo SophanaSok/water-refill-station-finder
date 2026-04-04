@@ -11,7 +11,10 @@
     "dev:frontend": "npm -w frontend run dev",
     "dev:api": "npm -w api run dev",
     "build:frontend": "npm -w frontend run build",
-    "build:api": "npm -w api run build"
+    "build:api": "npm -w api run build",
+    "build": "npm run build:api && npm run build:frontend",
+    "db:bootstrap": "npm -w scripts run run-script -- bootstrap-db.ts",
+    "check": "npm run build"
   },
   "engines": {
     "node": ">=18.0.0"

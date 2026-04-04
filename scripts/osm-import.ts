@@ -47,14 +47,6 @@ type SeedStation = {
   photoUrl: string | null;
 };
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to run the OSM import");
-}
-
-const sql = neon(databaseUrl);
-
 function normalizeText(value: string | undefined): string | null {
   if (!value) {
     return null;
@@ -267,7 +259,13 @@ function buildUpsertQuery(stations: SeedStation[]): { text: string; values: unkn
   };
 }
 
-async function seedStations(): Promise<void> {
+export async function seedStations(databaseUrl = process.env.DATABASE_URL): Promise<void> {
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required to run the OSM import");
+  }
+
+  const sql = neon(databaseUrl);
+
   console.log("Fetching drinking water stations from Overpass...");
   const overpassNodes = await fetchOverpassStations();
   const stations = overpassNodes.map(mapNodeToStation);
@@ -286,7 +284,11 @@ async function seedStations(): Promise<void> {
   console.log(`Import complete. Processed ${insertedOrUpdated} station(s).`);
 }
 
-seedStations().catch((error: unknown) => {
-  console.error("OSM import failed:", error);
-  process.exitCode = 1;
-});
+const isMainModule = process.argv[1] ? new URL(import.meta.url).pathname === process.argv[1] : false;
+
+if (isMainModule) {
+  seedStations().catch((error: unknown) => {
+    console.error("OSM import failed:", error);
+    process.exitCode = 1;
+  });
+}
