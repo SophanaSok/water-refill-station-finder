@@ -153,7 +153,7 @@ function buildStationDetailHTML(station: StationDetail): string {
   const typeBadge = `<span class="badge badge--type"><span class="badge-icon">${getStationTypeIconMarkup(station.type)}</span>${escapeHtml(typeLabel)}</span>`;
 
   return `
-    <article id="station-detail" class="station-detail" style="display: grid; gap: var(--space-4);">
+    <article id="station-detail" class="station-detail">
       
       <!-- Photo Section -->
       <div id="photo-section" style="width: 100%;">
@@ -188,11 +188,10 @@ function buildStationDetailHTML(station: StationDetail): string {
       ${freshnessHtml}
 
       <!-- Confirmation Bar -->
-      <div class="confirmation-bar" style="display: flex; gap: var(--space-2); margin-top: var(--space-2);">
+      <div class="confirmation-bar" style="margin-top: var(--space-2);">
         <button 
           id="confirm-working"
           class="btn-primary" 
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--space-1);" 
           data-station-id="${station.id}"
           data-confirm="true"
           ${hasConfirmedThisSession ? 'disabled' : ''}
@@ -202,7 +201,6 @@ function buildStationDetailHTML(station: StationDetail): string {
         <button 
           id="confirm-not-working"
           class="btn-secondary" 
-          style="flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--space-1);"
           data-station-id="${station.id}"
           data-confirm="false"
           ${hasConfirmedThisSession ? 'disabled' : ''}
@@ -212,11 +210,10 @@ function buildStationDetailHTML(station: StationDetail): string {
       </div>
 
       <!-- Action Row -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-top: var(--space-2);">
+      <div class="station-detail__action-row" style="margin-top: var(--space-2);">
         <button 
           id="save-station-btn" 
           class="btn-secondary" 
-          style="display: flex; align-items: center; justify-content: center; gap: var(--space-1);"
           data-station-id="${station.id}"
         >
           <span id="save-icon">${starIcon}</span>
@@ -225,7 +222,6 @@ function buildStationDetailHTML(station: StationDetail): string {
         <button 
           id="directions-btn" 
           class="btn-secondary" 
-          style="display: flex; align-items: center; justify-content: center; gap: var(--space-1);"
           data-lat="${station.latitude}"
           data-lng="${station.longitude}"
         >
@@ -234,11 +230,11 @@ function buildStationDetailHTML(station: StationDetail): string {
       </div>
 
       <!-- Secondary Actions -->
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); border-top: 1px solid var(--color-border); padding-top: var(--space-3); margin-top: var(--space-3);">
-        <button id="add-photo-btn" class="btn-ghost" style="display: flex; align-items: center; justify-content: center; gap: var(--space-1); color: var(--color-text-muted);">
+      <div class="station-detail__secondary-actions">
+        <button id="add-photo-btn" class="btn-ghost" style="color: var(--color-text-muted);">
           📷 Photo
         </button>
-        <button id="report-issue-btn" class="btn-ghost" style="display: flex; align-items: center; justify-content: center; gap: var(--space-1); color: var(--color-text-muted);">
+        <button id="report-issue-btn" class="btn-ghost" style="color: var(--color-text-muted);">
           🚩 Report
         </button>
       </div>
@@ -266,11 +262,10 @@ function buildStationDetailHTML(station: StationDetail): string {
           style="width: 100%; min-height: 4rem; padding: var(--space-2); border-radius: var(--radius-md); border: 1px solid var(--color-border); background: var(--color-surface); font-size: var(--text-sm); font-family: inherit; margin-bottom: var(--space-3); resize: vertical;"
         ></textarea>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2);">
+        <div class="station-detail__form-actions">
           <button 
             type="submit" 
             class="btn-primary" 
-            style="display: flex; align-items: center; justify-content: center;"
           >
             Submit Report
           </button>

@@ -195,15 +195,15 @@ function renderAppShell() {
             </div>
           </article>
           <div class="confirmation-bar">
-            <div>
+            <div class="confirmation-bar__summary">
               <strong>Working status</strong>
               <p style="font-size: var(--text-xs); color: var(--color-text-muted);">No confirmations yet</p>
             </div>
-            <div style="display: flex; gap: var(--space-2);">
-              <button class="btn-secondary" style="flex: 1;" data-confirm="false">
+            <div class="confirmation-bar__actions">
+              <button class="btn-secondary" data-confirm="false">
                 ❌ Not working
               </button>
-              <button class="btn-primary" style="flex: 1;" data-confirm="true">
+              <button class="btn-primary" data-confirm="true">
                 ✅ Working
               </button>
             </div>
