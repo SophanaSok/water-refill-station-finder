@@ -36,12 +36,34 @@ const flagsBodySchema = {
   required: ["station_id", "reason"],
 } as const;
 
+const flagsSuccessSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    success: { type: "boolean" },
+  },
+  required: ["success"],
+} as const;
+
+const flagsNotFoundSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    error: { type: "string" },
+  },
+  required: ["error"],
+} as const;
+
 const flagsRoutes: FastifyPluginAsync = async (server) => {
   server.post<{ Body: FlagsBody }>(
     "/",
     {
       schema: {
         body: flagsBodySchema,
+        response: {
+          200: flagsSuccessSchema,
+          404: flagsNotFoundSchema,
+        },
       },
     },
     async (request, reply) => {

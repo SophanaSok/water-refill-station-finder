@@ -46,6 +46,35 @@ const confirmHeadersSchema = {
   },
 } as const;
 
+const stationNotFoundSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    error: { type: "string" },
+  },
+  required: ["error"],
+} as const;
+
+const confirmRateLimitSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    error: { type: "string" },
+  },
+  required: ["error"],
+} as const;
+
+const confirmSuccessSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    success: { type: "boolean" },
+    working_count: { type: "integer" },
+    not_working_count: { type: "integer" },
+  },
+  required: ["success", "working_count", "not_working_count"],
+} as const;
+
 function truncateTo2Decimals(value: number): number {
   return Math.trunc(value * 100) / 100;
 }
@@ -81,6 +110,11 @@ const confirmRoutes: FastifyPluginAsync = async (server) => {
       schema: {
         body: confirmBodySchema,
         headers: confirmHeadersSchema,
+        response: {
+          200: confirmSuccessSchema,
+          404: stationNotFoundSchema,
+          429: confirmRateLimitSchema,
+        },
       },
     },
     async (request, reply) => {

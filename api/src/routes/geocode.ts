@@ -35,6 +35,36 @@ const geocodeQuerySchema = {
   required: ["q"],
 } as const;
 
+const geocodeResultSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    place_name: { type: "string" },
+    center: {
+      type: "array",
+      items: { type: "number" },
+      minItems: 2,
+      maxItems: 2,
+    },
+    bbox: {
+      type: "array",
+      items: { type: "number" },
+      minItems: 4,
+      maxItems: 4,
+    },
+  },
+  required: ["place_name", "center"],
+} as const;
+
+const geocodeUnavailableSchema = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    error: { type: "string" },
+  },
+  required: ["error"],
+} as const;
+
 function toCacheKey(rawQuery: string): string {
   return `geocode:${rawQuery.toLowerCase().trim()}`;
 }
@@ -83,6 +113,13 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
     {
       schema: {
         querystring: geocodeQuerySchema,
+        response: {
+          200: {
+            type: "array",
+            items: geocodeResultSchema,
+          },
+          502: geocodeUnavailableSchema,
+        },
       },
     },
     async (request, reply) => {
