@@ -320,6 +320,23 @@ async function handleMapClick(stationId: string) {
     openStationDetail(station);
   } catch (error) {
     console.error("Failed to load station details:", error);
+    const sheet = document.querySelector<HTMLElement>(".bottom-sheet");
+    const content = sheet?.querySelector<HTMLElement>(".content");
+
+    if (sheet && content) {
+      sheet.setAttribute("data-state", "half");
+      content.innerHTML = `
+        <article class="station-card">
+          <div class="empty-state-icon" aria-hidden="true">⚠️</div>
+          <div>
+            <h2 style="font-size: var(--text-md);">Could not load station details</h2>
+            <p style="color: var(--color-text-muted); margin-top: var(--space-1);">
+              Please try another marker or tap this marker again.
+            </p>
+          </div>
+        </article>
+      `;
+    }
   }
 }
 
