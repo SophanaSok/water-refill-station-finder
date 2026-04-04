@@ -8,6 +8,7 @@ export default defineConfig({
   build: {
     target: "es2020",
     outDir: "dist",
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
         main: "index.html",
@@ -15,6 +16,17 @@ export default defineConfig({
       },
       output: {
         entryFileNames: "[name].js",
+        manualChunks(id) {
+          if (id.includes("maplibre-gl")) {
+            return "maplibre-gl";
+          }
+
+          if (id.includes("better-auth")) {
+            return "auth-vendor";
+          }
+
+          return undefined;
+        },
       },
     },
   },
