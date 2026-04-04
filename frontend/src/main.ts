@@ -16,6 +16,41 @@ import "./styles/components.css";
 let isSearchingThisArea = false;
 let lastGeolocationResult: { lat: number; lng: number } | null = null;
 
+function setOfflineBanner(offline: boolean) {
+  const banner = document.querySelector<HTMLDivElement>("#offline-banner");
+  if (!banner) return;
+
+  banner.style.display = offline ? "flex" : "none";
+  banner.setAttribute("aria-hidden", offline ? "false" : "true");
+}
+
+function initConnectivityBanner() {
+  const syncBanner = () => setOfflineBanner(!navigator.onLine);
+
+  window.addEventListener("online", syncBanner);
+  window.addEventListener("offline", syncBanner);
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", (event) => {
+      const data = event.data as { type?: string; online?: boolean } | undefined;
+
+      if (data?.type === "connectivity" && typeof data.online === "boolean") {
+        setOfflineBanner(!data.online);
+      }
+    });
+  }
+
+  syncBanner();
+}
+
+function registerServiceWorker() {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.error("Service worker registration failed:", error);
+    });
+  }
+}
+
 // ============================================================================
 // DOM Utilities
 // ============================================================================
@@ -46,6 +81,34 @@ function renderAppShell() {
 
   app.innerHTML = `
     <div class="app-shell">
+      <div
+        id="offline-banner"
+        role="status"
+        aria-live="polite"
+        aria-hidden="true"
+        style="
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 80;
+          display: none;
+          align-items: center;
+          gap: 0.5rem;
+          margin-top: 0.75rem;
+          padding: 0.65rem 1rem;
+          border-radius: 999px;
+          background: rgba(1, 105, 111, 0.96);
+          color: #ffffff;
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+          font-size: 0.875rem;
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        "
+      >
+        <span aria-hidden="true">●</span>
+        You are offline. Showing cached data where available.
+      </div>
       <div id="map" class="map-canvas"></div>
       
       <form class="search-bar" role="search" aria-label="Search stations">
@@ -578,6 +641,8 @@ function requestGeolocation(map: ReturnType<typeof initMap>) {
 function main() {
   // Render app shell
   renderAppShell();
+  initConnectivityBanner();
+  registerServiceWorker();
 
   // Initialize authentication (restore session if present)
   initializeAuth();

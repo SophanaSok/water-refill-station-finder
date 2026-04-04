@@ -4,6 +4,15 @@ export default defineConfig({
   build: {
     target: "es2020",
     outDir: "dist",
+    rollupOptions: {
+      input: {
+        main: "index.html",
+        sw: "src/sw.ts",
+      },
+      output: {
+        entryFileNames: "[name].js",
+      },
+    },
   },
   server: {
     port: 5173,

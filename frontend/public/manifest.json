@@ -1,25 +1,14 @@
 {
-  "name": "Water Refill Station Finder",
-  "short_name": "Water Refill",
-  "description": "Find free water refill stations near you across the USA.",
-  "display": "standalone",
+  "name": "Water Refill Finder",
+  "short_name": "WaterFill",
+  "description": "Find water refill stations near you",
   "start_url": "/",
-  "scope": "/",
-  "theme_color": "#0ea5e9",
-  "background_color": "#ffffff",
+  "display": "standalone",
   "orientation": "portrait-primary",
+  "theme_color": "#01696f",
+  "background_color": "#f7f6f2",
   "icons": [
-    {
-      "src": "/icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    }
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }
