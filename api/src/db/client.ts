@@ -71,3 +71,11 @@ export interface StationSubmission {
   submitter_email: string;
   submitted_at: string | null;
 }
+
+export interface StationModerationNote {
+  id: string;
+  station_id: string;
+  status: "approved" | "rejected";
+  note: string;
+  created_at: string | null;
+}
