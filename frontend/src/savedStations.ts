@@ -1,4 +1,4 @@
-import { fetchSavedStations, unsaveStation } from "./api.js";
+import { fetchSavedStations, fetchStationById, unsaveStation } from "./api.js";
 import type { Station } from "./api.js";
 import { isAuthenticated } from "./auth.js";
 import { openAuthModal } from "./authModal.js";
@@ -483,7 +483,6 @@ function attachSavedStationsEventListeners(): void {
 
       // Fetch the station details and open it
       try {
-        const { fetchStationById } = await import("./api.js");
         const station = await fetchStationById(stationId);
         openStationDetail(station);
       } catch (error) {
