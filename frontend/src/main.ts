@@ -377,7 +377,10 @@ function renderAppShell() {
               Bottle Filler
             </button>
             <button class="filter-pill" data-filter="store_refill" aria-pressed="false">
-              Store Refill
+              Refill Station
+            </button>
+            <button class="filter-pill" data-filter="tap" aria-pressed="false">
+              Tap
             </button>
           </div>
           <div id="map-legend" class="map-legend" data-collapsed="true">
@@ -967,6 +970,20 @@ class FilterPillsController {
   }
 
   private initPillHandlers() {
+    const setPressedState = (button: HTMLButtonElement, active: boolean) => {
+      button.classList.toggle("active-pill", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    };
+
+    const clearAllPillState = () => {
+      this.pills.forEach((button) => {
+        setPressedState(button, false);
+      });
+    };
+
+    const allButton = this.pills.find((button) => button.getAttribute("data-filter") === "all") ?? this.pills[0];
+    const freeButton = this.pills.find((button) => button.getAttribute("data-filter") === "is_free");
+
     this.pills.forEach((pill) => {
       pill.addEventListener("click", () => {
         const filter = pill.getAttribute("data-filter");
@@ -976,24 +993,42 @@ class FilterPillsController {
           // Reset all filters
           this.currentType = undefined;
           this.currentIsFree = undefined;
-          this.pills.forEach((p) => p.classList.remove("active-pill"));
-          pill.classList.add("active-pill");
+          clearAllPillState();
+          setPressedState(pill, true);
         } else if (filter === "is_free") {
           // Toggle free filter
           this.currentIsFree = this.currentIsFree === true ? undefined : true;
-          pill.classList.toggle("active-pill");
+          setPressedState(pill, this.currentIsFree === true);
+
+          if (this.currentType || this.currentIsFree) {
+            setPressedState(allButton, false);
+          } else {
+            setPressedState(allButton, true);
+          }
         } else {
-          // Type filters (fountain, bottle_filler, store_refill)
+          // Type filters (fountain, bottle_filler, store_refill, tap)
           const wasActive = pill.classList.contains("active-pill");
 
           if (wasActive) {
             this.currentType = undefined;
-            this.pills.forEach((p) => p.classList.remove("active-pill"));
-            this.pills[0].classList.add("active-pill");
+            clearAllPillState();
+            setPressedState(allButton, this.currentIsFree !== true);
+            if (freeButton && this.currentIsFree === true) {
+              setPressedState(freeButton, true);
+            }
           } else {
             this.currentType = filter;
-            this.pills.forEach((p) => p.classList.remove("active-pill"));
-            pill.classList.add("active-pill");
+            this.pills.forEach((button) => {
+              const buttonFilter = button.getAttribute("data-filter");
+              if (buttonFilter && buttonFilter !== "is_free") {
+                setPressedState(button, false);
+              }
+            });
+            setPressedState(pill, true);
+            setPressedState(allButton, false);
+            if (freeButton && this.currentIsFree === true) {
+              setPressedState(freeButton, true);
+            }
           }
         }
 
