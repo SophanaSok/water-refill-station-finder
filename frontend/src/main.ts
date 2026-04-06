@@ -283,6 +283,40 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function distanceMilesBetween(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const toRad = (deg: number) => deg * (Math.PI / 180);
+  const earthRadiusMiles = 3959;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  return earthRadiusMiles * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function scoreQuickPickStation(
+  station: NearbyStationsGeoJSON["features"][number]["properties"],
+  lat: number,
+  lng: number,
+): number {
+  let score = 0;
+
+  if (lastGeolocationResult) {
+    const miles = distanceMilesBetween(lastGeolocationResult.lat, lastGeolocationResult.lng, lat, lng);
+    score += miles * 100;
+  }
+
+  score += Math.min(Math.max(station.last_confirmed_days ?? 365, 0), 365);
+  if (!station.is_verified) {
+    score += 30;
+  }
+  if (!station.is_free) {
+    score += 15;
+  }
+
+  return score;
+}
+
 function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
   const section = document.querySelector<HTMLElement>("#best-nearby");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
@@ -294,6 +328,11 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
     .filter((feature): feature is NearbyStationsGeoJSON["features"][number] => {
       const stationId = feature.properties?.id;
       return feature.geometry.type === "Point" && typeof stationId === "string";
+    })
+    .sort((a, b) => {
+      const [aLng, aLat] = a.geometry.coordinates;
+      const [bLng, bLat] = b.geometry.coordinates;
+      return scoreQuickPickStation(a.properties, aLat, aLng) - scoreQuickPickStation(b.properties, bLat, bLng);
     })
     .slice(0, 3);
 
@@ -316,13 +355,19 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
           ? calculateDistance(lastGeolocationResult.lat, lastGeolocationResult.lng, lat, lng)
           : null;
       const summary = [typeLabel, station.is_free ? "Free" : "Paid", distance].filter(Boolean).join(" • ");
+      const freshnessLabel =
+        station.last_confirmed_days <= 7
+          ? "Confirmed this week"
+          : station.last_confirmed_days <= 30
+            ? "Confirmed this month"
+            : "Needs fresh confirmation";
 
       return `
         <article class="best-nearby__item">
           <div class="best-nearby__copy">
             <h3>${stationName}</h3>
             <p>${escapeHtml(summary || "Refill station")}</p>
-            <p>${escapeHtml(cityState)}</p>
+            <p>${escapeHtml(cityState)} • ${escapeHtml(freshnessLabel)}</p>
           </div>
           <div class="best-nearby__actions">
             <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}">View</button>
