@@ -25,6 +25,7 @@ let bestNearbyFreeOnly = getStoredBestNearbyFreeOnly();
 let bestNearbyHintSeen = getStoredBestNearbyHintSeen();
 let bestNearbyRenderSequence = 0;
 let bestNearbyRenderedAtMs: number | null = null;
+let bestNearbyPreviousRankSignature: string | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -431,6 +432,21 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
       return scoreQuickPickStation(a.properties, aLat, aLng) - scoreQuickPickStation(b.properties, bLat, bLng);
     })
     .slice(0, 3);
+
+  const rankSignature = picks
+    .map((feature, index) => `${index + 1}:${feature.properties.id}`)
+    .join("|");
+
+  if (bestNearbyPreviousRankSignature !== null && bestNearbyPreviousRankSignature !== rankSignature) {
+    trackPlausible("best_nearby_rank_changed", {
+      previous_rank_signature: bestNearbyPreviousRankSignature,
+      next_rank_signature: rankSignature,
+      free_only: bestNearbyFreeOnly ? "true" : "false",
+      render_seq: String(bestNearbyRenderSequence),
+    });
+  }
+
+  bestNearbyPreviousRankSignature = rankSignature;
 
   if (picks.length === 0) {
     if (geojson.features.length > 0 && bestNearbyFreeOnly) {
