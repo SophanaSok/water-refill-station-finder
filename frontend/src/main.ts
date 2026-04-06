@@ -243,7 +243,9 @@ function updateFilterToggleSummary() {
     .filter((button) => button.getAttribute("data-filter") !== "all")
     .length;
 
-  const summary = activeCount > 0 ? `Filters • ${activeCount} active` : "Filters • All stations";
+  const isMobile = window.matchMedia("(max-width: 767px)").matches;
+  const baseLabel = isMobile ? "Filters" : "Filters and legend";
+  const summary = activeCount > 0 ? `${baseLabel} • ${activeCount} active` : `${baseLabel} • All stations`;
   label.textContent = summary;
   toggle.setAttribute("aria-label", `${summary}. Includes legend.`);
 }
@@ -357,7 +359,7 @@ function renderAppShell() {
       <div class="filter-pills" data-collapsed="true">
         <button class="filter-pills__toggle" type="button" aria-expanded="false">
           <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
-          <span id="filter-toggle-label" class="filter-pills__toggle-label">Filters and legend • All stations</span>
+          <span id="filter-toggle-label" class="filter-pills__toggle-label" data-desktop-label="Filters and legend • All stations" data-mobile-label="Filters • All stations">Filters and legend • All stations</span>
           <span class="filter-pills__toggle-icon" aria-hidden="true">▾</span>
         </button>
         <div class="filter-pills__body">
