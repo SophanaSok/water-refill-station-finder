@@ -19,6 +19,7 @@ let lastGeolocationResult: { lat: number; lng: number } | null = null;
 let savedStationsModulePromise: Promise<typeof import("./savedStations")> | null = null;
 let profileModulePromise: Promise<typeof import("./profile")> | null = null;
 let hasTrackedFirstStationsLoad = false;
+let searchStatusPillHideTimer: ReturnType<typeof setTimeout> | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 
@@ -212,6 +213,28 @@ function getElement<T extends Element>(selector: string): T {
   return el;
 }
 
+function showUserSearchStatus(message: string) {
+  const pill = document.querySelector<HTMLElement>("#search-status-pill");
+  if (!pill) return;
+
+  pill.textContent = `✓ ${message}`;
+  pill.style.display = "inline-flex";
+  pill.setAttribute("aria-hidden", "false");
+  pill.classList.remove("is-fresh");
+  // Restart highlight animation each time search is applied.
+  window.requestAnimationFrame(() => {
+    pill.classList.add("is-fresh");
+  });
+
+  if (searchStatusPillHideTimer) {
+    clearTimeout(searchStatusPillHideTimer);
+  }
+
+  searchStatusPillHideTimer = setTimeout(() => {
+    pill.classList.remove("is-fresh");
+  }, 3000);
+}
+
 async function openAddStationOverlay() {
   const { openAddStation } = await import("./addStation");
   openAddStation();
@@ -302,6 +325,7 @@ function renderAppShell() {
         <div id="search-dropdown" class="search-dropdown" style="display: none;">
           <ul id="search-results" role="listbox"></ul>
         </div>
+        <div id="search-status-pill" class="search-status-pill" aria-live="polite" aria-atomic="true" aria-hidden="true" style="display: none;"></div>
       </form>
 
       <div class="filter-pills" role="toolbar" aria-label="Filters">
@@ -731,7 +755,7 @@ class SearchBarController {
       return;
     }
 
-    await this.handleSearchSelection(lng, lat);
+    await this.handleSearchSelection(lng, lat, selected.place_name);
   }
 
   private initSubmitHandler() {
@@ -745,7 +769,7 @@ class SearchBarController {
 
       if (this.latestResults.length > 0 && this.latestResultsQuery === query) {
         const [lng, lat] = this.latestResults[0].center;
-        await this.handleSearchSelection(lng, lat);
+        await this.handleSearchSelection(lng, lat, this.latestResults[0].place_name);
         return;
       }
 
@@ -760,7 +784,7 @@ class SearchBarController {
         }
 
         const [lng, lat] = firstResult.center;
-        await this.handleSearchSelection(lng, lat);
+        await this.handleSearchSelection(lng, lat, firstResult.place_name);
       } catch (error) {
         console.error("Geocode search failed:", error);
         this.resultsList.innerHTML = `<li class="search-dropdown__hint">${this.getSearchErrorMessage(error)}</li>`;
@@ -827,7 +851,7 @@ class SearchBarController {
     });
   }
 
-  private async handleSearchSelection(lng: number, lat: number) {
+  private async handleSearchSelection(lng: number, lat: number, placeLabel: string) {
     this.latestResults = [];
     this.latestResultsQuery = "";
     this.highlightedIndex = -1;
@@ -835,6 +859,7 @@ class SearchBarController {
 
     trackPlausible("search_performed");
     this.map.flyTo(lng, lat, 14);
+    showUserSearchStatus(`Showing results near ${placeLabel}`);
     await this.loadStationsAtLocation(lng, lat);
   }
 
@@ -964,6 +989,7 @@ class SearchThisAreaController {
         if (geojson.features.length === 0) {
           showNoNearbyStationsMessage();
         }
+        showUserSearchStatus("Search applied to this map area");
         this.button.style.display = "none";
         isSearchingThisArea = false;
       } catch (error) {
