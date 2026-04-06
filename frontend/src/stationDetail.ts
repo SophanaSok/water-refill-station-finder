@@ -131,6 +131,11 @@ function getBottomSheet(): HTMLElement {
 
 function buildStationDetailHTML(station: StationDetail): string {
   const stationType = typeof station.type === "string" && station.type.length > 0 ? station.type : "unknown";
+  const stationName = safeText(station.name, "Water refill station");
+  const stationAddress = safeText(station.address, "Address not available");
+  const stationCity = safeText(station.city);
+  const stationState = safeText(station.state);
+  const cityStateLabel = [stationCity, stationState].filter((part) => part.length > 0).join(", ") || "Location unknown";
   const distance =
     userLocation && station.latitude && station.longitude
       ? calculateDistance(userLocation.lat, userLocation.lng, station.latitude, station.longitude)
@@ -141,7 +146,7 @@ function buildStationDetailHTML(station: StationDetail): string {
 
   const hasPhotoUrl = station.photo_url !== null && station.photo_url !== undefined;
   const photoHtml = hasPhotoUrl
-    ? `<img id="station-photo" src="${escapeHtml(station.photo_url ?? "")}" alt="${escapeHtml(station.name)}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md);" />`
+    ? `<img id="station-photo" src="${escapeHtml(station.photo_url ?? "")}" alt="${escapeHtml(stationName)}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md);" />`
     : `<div class="station-photo-placeholder" style="width: 100%; aspect-ratio: 1; background: color-mix(in srgb, var(--color-primary) 12%, transparent 88%); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 3rem;">
          ${getStationTypeIconMarkup(stationType)}
        </div>`;
@@ -167,7 +172,7 @@ function buildStationDetailHTML(station: StationDetail): string {
       <!-- Header -->
       <div style="display: grid; gap: var(--space-2);">
         <div style="display: flex; align-items: start; gap: var(--space-2); justify-content: space-between;">
-          <h2 style="font-size: var(--text-lg); margin: 0; flex: 1;">${escapeHtml(station.name)}</h2>
+          <h2 style="font-size: var(--text-lg); margin: 0; flex: 1;">${escapeHtml(stationName)}</h2>
           ${verifiedBadge}
         </div>
       </div>
@@ -177,12 +182,12 @@ function buildStationDetailHTML(station: StationDetail): string {
         ${typeBadge}
         <span class="badge">${costBadge}</span>
         ${distanceBadge}
-        <span class="badge">${escapeHtml(station.city)}, ${escapeHtml(station.state)}</span>
+        <span class="badge">${escapeHtml(cityStateLabel)}</span>
       </div>
 
       <!-- Address -->
       <p style="margin: 0; font-size: var(--text-sm); color: var(--color-text-muted);">
-        ${escapeHtml(station.address)}
+        ${escapeHtml(stationAddress)}
       </p>
 
       <!-- Freshness Indicator -->
@@ -321,6 +326,7 @@ function getFreshnessHTML(station: StationDetail): string {
 }
 
 function escapeHtml(text: string): string {
+  const safeTextValue = typeof text === "string" ? text : "";
   const map: Record<string, string> = {
     "&": "&amp;",
     "<": "&lt;",
@@ -328,7 +334,11 @@ function escapeHtml(text: string): string {
     '"': "&quot;",
     "'": "&#039;",
   };
-  return text.replace(/[&<>"']/g, (c) => map[c] ?? "");
+  return safeTextValue.replace(/[&<>"']/g, (c) => map[c] ?? "");
+}
+
+function safeText(value: unknown, fallback = ""): string {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : fallback;
 }
 
 // ============================================================================
