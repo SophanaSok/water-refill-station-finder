@@ -1026,18 +1026,30 @@ class BottomSheetSnap {
 
   private initTouchHandlers() {
     this.sheet.addEventListener("touchstart", (e) => {
+      if (this.isDesktopViewport()) {
+        return;
+      }
+
       this.startY = e.touches[0]?.clientY ?? 0;
       this.startState = (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "peek";
       this.isDragging = true;
     });
 
     this.sheet.addEventListener("touchmove", (e) => {
+      if (this.isDesktopViewport()) {
+        return;
+      }
+
       if (!this.isDragging) return;
       e.preventDefault();
       // Visual feedback during drag (optional enhancement)
     });
 
     this.sheet.addEventListener("touchend", (e) => {
+      if (this.isDesktopViewport()) {
+        return;
+      }
+
       if (!this.isDragging) return;
       this.isDragging = false;
 
@@ -1063,6 +1075,10 @@ class BottomSheetSnap {
     if (!handle) return;
 
     handle.addEventListener("click", () => {
+      if (this.isDesktopViewport()) {
+        return;
+      }
+
       const current = (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "peek";
       const next = current === "peek" ? "half" : current === "half" ? "full" : "peek";
       this.snapTo(next);
