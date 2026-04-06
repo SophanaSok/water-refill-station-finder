@@ -1506,6 +1506,64 @@
   }
 }
 
+@media (min-width: 768px) and (max-width: 1023px) {
+  .search-bar {
+    width: min(94vw, 44rem);
+  }
+
+  .map-state-bar {
+    width: min(94vw, 44rem);
+    top: calc(var(--space-4) + 4.85rem);
+  }
+
+  .filter-pills {
+    top: calc(var(--space-4) + 7.2rem);
+    width: min(94vw, 44rem);
+    left: 50%;
+    transform: translateX(-50%);
+    padding-inline: 0;
+  }
+
+  .best-nearby {
+    width: min(94vw, 44rem);
+    top: calc(var(--space-4) + 10.75rem);
+    padding: 0.45rem 0.5rem;
+  }
+
+  .best-nearby__header {
+    font-size: 0.62rem;
+    padding-inline: 0.2rem;
+  }
+
+  .best-nearby__list {
+    display: flex;
+    gap: var(--space-2);
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding-bottom: 0.1rem;
+  }
+
+  .best-nearby__list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .best-nearby__item {
+    min-width: 17rem;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .best-nearby__copy p:last-child {
+    display: none;
+  }
+
+  .best-nearby__actions {
+    justify-content: flex-start;
+  }
+}
+
 @media (min-width: 1280px) {
   .app-shell {
     grid-template-columns: clamp(24rem, 25vw, 30rem) 1fr;
