@@ -18,6 +18,19 @@ export type AppOptions = {
 };
 
 export function buildApp(options: AppOptions = {}) {
+  const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, "");
+
+  const allowedOrigins = new Set(
+    env.FRONTEND_URL.split(",")
+      .map((origin) => normalizeOrigin(origin))
+      .filter((origin) => origin.length > 0),
+  );
+
+  if (env.NODE_ENV !== "production") {
+    allowedOrigins.add("http://localhost:5173");
+    allowedOrigins.add("http://127.0.0.1:5173");
+  }
+
   const server = Fastify({
     logger: {
       level: env.NODE_ENV === "production" ? "info" : "debug",
@@ -88,7 +101,15 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   void server.register(cors, {
-    origin: env.FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      callback(null, allowedOrigins.has(normalizedOrigin));
+    },
   });
 
   void server.register(multipart, {
