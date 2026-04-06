@@ -1,7 +1,10 @@
 import { createAuthClient } from "better-auth/client";
 
-// @ts-expect-error Vite defines this at build time
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL?.trim();
+
+if (!API_URL) {
+  throw new Error("VITE_API_URL is required");
+}
 
 export const authClient = createAuthClient({
   baseURL: `${API_URL}/api/auth`,

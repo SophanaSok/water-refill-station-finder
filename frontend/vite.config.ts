@@ -7,7 +7,7 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
-    outDir: "dist",
+    outDir: "./dist",
     chunkSizeWarningLimit: 900,
     rollupOptions: {
       input: {
@@ -39,8 +39,5 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ""),
       },
     },
-  },
-  define: {
-    "import.meta.env.VITE_API_URL": JSON.stringify(process.env.VITE_API_URL || "http://localhost:3000"),
   },
 });

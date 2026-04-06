@@ -86,8 +86,7 @@ export class ApiErrorResponse extends Error {
 // Base Fetch Wrapper
 // ============================================================================
 
-// @ts-expect-error Vite defines this at build time
-const baseUrl: string = import.meta.env.VITE_API_URL;
+const baseUrl = import.meta.env.VITE_API_URL?.trim();
 
 if (!baseUrl) {
   throw new Error("VITE_API_URL is required");
