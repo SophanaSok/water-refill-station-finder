@@ -1,5 +1,5 @@
 import type { MapController } from "./map";
-import { fetchStations, geocodeSearch, fetchStationById } from "./api";
+import { ApiErrorResponse, fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
 import { initializeAuth } from "./auth";
 import { initAnalytics, startTiming, trackPlausible, trackTiming } from "./analytics";
@@ -637,8 +637,7 @@ class SearchBarController {
         this.latestResultsQuery = "";
         this.highlightedIndex = -1;
         console.error("Geocode search failed:", error);
-        this.resultsList.innerHTML =
-          "<li class=\"search-dropdown__hint\">Could not load search results. Try again.</li>";
+        this.resultsList.innerHTML = `<li class="search-dropdown__hint">${this.getSearchErrorMessage(error)}</li>`;
         this.openDropdown();
       }
     }, 300);
@@ -764,8 +763,26 @@ class SearchBarController {
         await this.handleSearchSelection(lng, lat);
       } catch (error) {
         console.error("Geocode search failed:", error);
+        this.resultsList.innerHTML = `<li class="search-dropdown__hint">${this.getSearchErrorMessage(error)}</li>`;
+        this.openDropdown();
       }
     });
+  }
+
+  private getSearchErrorMessage(error: unknown): string {
+    if (error instanceof ApiErrorResponse) {
+      if (error.status === 429) {
+        return "Too many searches right now. Please wait a moment and try again.";
+      }
+
+      if (error.status >= 500) {
+        return "Search service is temporarily unavailable. Please try again.";
+      }
+
+      return "Search request failed. Check your input and try again.";
+    }
+
+    return "Could not load search results. Check your connection and API configuration.";
   }
 
   private initEscapeKey() {
