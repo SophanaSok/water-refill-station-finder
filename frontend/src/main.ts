@@ -822,6 +822,9 @@ function renderAppShell() {
       <section class="bottom-sheet" data-state="peek" aria-label="Station details panel">
         <div class="sidebar-kicker sidebar-kicker--sheet" aria-hidden="true">Station details</div>
         <div class="handle" aria-hidden="true"></div>
+        <button type="button" class="bottom-sheet__desktop-toggle" aria-expanded="false" aria-label="Expand station details">
+          Expand details
+        </button>
         <div class="content">
           <article id="station-card" class="station-card">
             <div class="skeleton" style="width: 100%; aspect-ratio: 1 / 1;"></div>
@@ -986,16 +989,21 @@ async function handleMapClick(stationId: string) {
 
 class BottomSheetSnap {
   private sheet: HTMLDivElement;
+  private desktopToggleButton: HTMLButtonElement | null;
   private startY = 0;
   private startState: "peek" | "half" | "full" = "peek";
   private isDragging = false;
 
   constructor() {
     this.sheet = getElement<HTMLDivElement>(".bottom-sheet");
+    this.desktopToggleButton = this.sheet.querySelector<HTMLButtonElement>(".bottom-sheet__desktop-toggle");
     this.normalizeStateForViewport();
     this.initViewportStateSync();
+    this.initStateObserver();
     this.initTouchHandlers();
     this.initDragHandleClick();
+    this.initDesktopToggle();
+    this.updateDesktopToggleLabel();
   }
 
   private isDesktopViewport(): boolean {
@@ -1016,12 +1024,22 @@ class BottomSheetSnap {
     if (normalized !== current) {
       this.sheet.setAttribute("data-state", normalized);
     }
+
+    this.updateDesktopToggleLabel();
   }
 
   private initViewportStateSync() {
     window.addEventListener("resize", () => {
       this.normalizeStateForViewport();
     });
+  }
+
+  private initStateObserver() {
+    const observer = new MutationObserver(() => {
+      this.updateDesktopToggleLabel();
+    });
+
+    observer.observe(this.sheet, { attributes: true, attributeFilter: ["data-state"] });
   }
 
   private initTouchHandlers() {
@@ -1085,8 +1103,47 @@ class BottomSheetSnap {
     });
   }
 
+  private initDesktopToggle() {
+    if (!this.desktopToggleButton) {
+      return;
+    }
+
+    this.desktopToggleButton.addEventListener("click", () => {
+      if (!this.isDesktopViewport()) {
+        return;
+      }
+
+      const current = this.normalizeState(
+        (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "half",
+      );
+      this.snapTo(current === "full" ? "half" : "full");
+    });
+  }
+
+  private updateDesktopToggleLabel() {
+    if (!this.desktopToggleButton) {
+      return;
+    }
+
+    const current = this.normalizeState(
+      (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "half",
+    );
+
+    if (current === "full") {
+      this.desktopToggleButton.textContent = "Compact details";
+      this.desktopToggleButton.setAttribute("aria-expanded", "true");
+      this.desktopToggleButton.setAttribute("aria-label", "Compact station details");
+      return;
+    }
+
+    this.desktopToggleButton.textContent = "Expand details";
+    this.desktopToggleButton.setAttribute("aria-expanded", "false");
+    this.desktopToggleButton.setAttribute("aria-label", "Expand station details");
+  }
+
   snapTo(state: "peek" | "half" | "full") {
     this.sheet.setAttribute("data-state", this.normalizeState(state));
+    this.updateDesktopToggleLabel();
   }
 }
 

@@ -741,6 +741,10 @@
     background: color-mix(in srgb, var(--color-text-muted) 35%, transparent 65%);
   }
 
+  & .bottom-sheet__desktop-toggle {
+    display: none;
+  }
+
   & .content {
     overflow: visible;
     display: grid;
@@ -1283,6 +1287,27 @@
 
     & .handle {
       display: none;
+    }
+
+    & .bottom-sheet__desktop-toggle {
+      display: inline-flex;
+      align-self: flex-end;
+      margin: var(--space-3) var(--space-4) 0;
+      border: 1px solid color-mix(in srgb, var(--color-border) 72%, transparent 28%);
+      border-radius: var(--radius-full);
+      background: color-mix(in srgb, var(--color-surface-elevated) 98%, var(--color-bg) 2%);
+      color: color-mix(in srgb, var(--color-text) 82%, var(--color-text-muted) 18%);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      padding: 0.34rem 0.72rem;
+      transition: border-color var(--transition), background var(--transition), color var(--transition);
+    }
+
+    & .bottom-sheet__desktop-toggle:hover {
+      border-color: color-mix(in srgb, var(--color-primary) 38%, var(--color-border) 62%);
+      background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-elevated) 92%);
+      color: color-mix(in srgb, var(--color-text) 90%, var(--color-primary) 10%);
     }
 
     & .content {
