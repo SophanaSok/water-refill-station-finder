@@ -234,6 +234,30 @@ function showUserSearchStatus(message: string) {
   }, 3000);
 }
 
+function updateFilterToggleSummary() {
+  const toggle = document.querySelector<HTMLButtonElement>(".filter-pills__toggle");
+  const countBadge = document.querySelector<HTMLElement>("#filter-toggle-count");
+  if (!toggle || !countBadge) return;
+
+  const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
+    .filter((button) => button.getAttribute("data-filter") !== "all")
+    .length;
+
+  countBadge.textContent = activeCount > 0 ? `${activeCount} active` : "All stations";
+  toggle.setAttribute("aria-label", activeCount > 0 ? `Filters and legend, ${activeCount} active` : "Filters and legend");
+}
+
+function updateMapStateFilterSummary() {
+  const badge = document.querySelector<HTMLElement>("#map-state-filters");
+  if (!badge) return;
+
+  const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
+    .filter((button) => button.getAttribute("data-filter") !== "all")
+    .length;
+
+  badge.textContent = activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "All filters";
+}
+
 function updateMapStateCount(count: number) {
   const countBadge = document.querySelector<HTMLElement>("#map-state-count");
   if (!countBadge) return;
@@ -322,6 +346,7 @@ function renderAppShell() {
 
       <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
         <span id="map-state-text" class="map-state-bar__text">Showing: nearby stations</span>
+        <span id="map-state-filters" class="map-state-bar__filters">All filters</span>
         <span id="map-state-count" class="map-state-bar__count">0 results</span>
       </div>
 
@@ -329,6 +354,7 @@ function renderAppShell() {
         <button class="filter-pills__toggle" type="button" aria-expanded="false">
           <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
           <span class="filter-pills__toggle-label">Filters and legend</span>
+          <span id="filter-toggle-count" class="filter-pills__toggle-count">All stations</span>
           <span class="filter-pills__toggle-icon" aria-hidden="true">▾</span>
         </button>
         <div class="filter-pills__body">
@@ -971,8 +997,14 @@ class FilterPillsController {
           type: this.currentType,
           is_free: this.currentIsFree,
         });
+
+        updateFilterToggleSummary();
+        updateMapStateFilterSummary();
       });
     });
+
+    updateFilterToggleSummary();
+    updateMapStateFilterSummary();
   }
 }
 

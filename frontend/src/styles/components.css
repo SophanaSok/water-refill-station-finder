@@ -110,7 +110,7 @@
   transform: translateX(-50%);
   width: min(92vw, 36rem);
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   align-items: center;
   gap: var(--space-2);
   padding: 0.45rem var(--space-3);
@@ -141,6 +141,17 @@
   color: var(--color-text);
 }
 
+.map-state-bar__filters {
+  justify-self: end;
+  padding: 0.12rem 0.5rem;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-border) 45%);
+  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-elevated) 86%);
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+}
+
 .map-state-bar.is-fresh {
   animation: mapStatePulse 0.45s ease-out;
 }
@@ -169,7 +180,7 @@
 .filter-pills__toggle {
   width: 100%;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr auto auto;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
@@ -184,6 +195,18 @@
   font-size: var(--text-sm);
   font-weight: 700;
   color: var(--color-text);
+}
+
+.filter-pills__toggle-count {
+  justify-self: end;
+  padding: 0.15rem 0.55rem;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-border) 86%, transparent 14%);
+  background: color-mix(in srgb, var(--color-badge) 88%, transparent 12%);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
 }
 
 .filter-pills__toggle-icon {
@@ -929,6 +952,10 @@
     box-shadow: var(--shadow-sm);
   }
 
+  .map-state-bar__filters {
+    justify-self: end;
+  }
+
   .app-shell[data-search-active="true"] .search-bar {
     width: min(40rem, calc(100vw - 2rem));
     margin: 0;
@@ -956,6 +983,10 @@
 
   .filter-pills__body {
     padding: var(--space-3) var(--space-3) var(--space-3);
+  }
+
+  .filter-pills__toggle-count {
+    justify-self: end;
   }
 
   .map-legend {
