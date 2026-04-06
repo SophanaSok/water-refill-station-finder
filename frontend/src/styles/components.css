@@ -551,7 +551,9 @@
   }
 
   &[data-state="peek"] {
-    height: 4rem;
+    height: 3rem;
+    background: color-mix(in srgb, var(--color-surface) 94%, transparent 6%);
+    box-shadow: 0 -8px 18px rgb(0 0 0 / 0.08);
   }
 
   &[data-state="half"] {
@@ -563,9 +565,9 @@
   }
 
   & .handle {
-    width: 3rem;
-    height: 0.32rem;
-    margin: var(--space-2) auto var(--space-3);
+    width: 2.5rem;
+    height: 0.24rem;
+    margin: var(--space-2) auto var(--space-2);
     border-radius: var(--radius-full);
     background: color-mix(in srgb, var(--color-text-muted) 35%, transparent 65%);
   }
@@ -579,6 +581,10 @@
 
   &[data-state="peek"] .content {
     display: none;
+  }
+
+  &[data-state="peek"] .handle {
+    background: color-mix(in srgb, var(--color-text-muted) 22%, transparent 78%);
   }
 }
 
@@ -1046,6 +1052,10 @@
   .bottom-sheet[data-state="full"] {
     height: 100%;
     max-height: 100%;
+  }
+
+  .bottom-sheet[data-state="peek"] {
+    height: 3rem;
   }
 
   .confirmation-bar {
