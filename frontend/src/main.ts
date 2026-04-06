@@ -378,6 +378,19 @@ function getQuickPickReasons(
   return reasons.slice(0, 2);
 }
 
+function getQuickPickEventProps(button: HTMLElement): Record<string, string> {
+  const rank = button.getAttribute("data-best-nearby-rank") ?? "unknown";
+  const type = button.getAttribute("data-best-nearby-type") ?? "unknown";
+  const isFree = button.getAttribute("data-best-nearby-free") ?? "unknown";
+
+  return {
+    rank,
+    station_type: type,
+    station_free: isFree,
+    free_only_mode: bestNearbyFreeOnly ? "true" : "false",
+  };
+}
+
 function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
   const section = document.querySelector<HTMLElement>("#best-nearby");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
@@ -410,6 +423,10 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
   if (picks.length === 0) {
     if (geojson.features.length > 0 && bestNearbyFreeOnly) {
       section.style.display = "grid";
+      trackPlausible("best_nearby_rendered", {
+        count: "0",
+        free_only: "true",
+      });
       list.innerHTML = `
         <p class="best-nearby__empty">
           No free stations in this map area.
@@ -421,16 +438,27 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
 
     section.style.display = "none";
     list.innerHTML = "";
+    trackPlausible("best_nearby_rendered", {
+      count: "0",
+      free_only: bestNearbyFreeOnly ? "true" : "false",
+    });
     return;
   }
 
   section.style.display = "grid";
+  trackPlausible("best_nearby_rendered", {
+    count: String(picks.length),
+    free_only: bestNearbyFreeOnly ? "true" : "false",
+  });
   list.innerHTML = picks
-    .map((feature) => {
+    .map((feature, index) => {
       const station = feature.properties;
       const [lng, lat] = feature.geometry.coordinates;
       const stationName = escapeHtml(station.name || "Water refill station");
       const typeLabel = escapeHtml((station.type || "unknown").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
+      const typeValue = escapeHtml(station.type || "unknown");
+      const rankValue = String(index + 1);
+      const freeValue = station.is_free ? "true" : "false";
       const cityState = [station.city, station.state].filter(Boolean).join(", ") || "Location unknown";
       const distance =
         lastGeolocationResult
@@ -457,8 +485,8 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
             <p>${escapeHtml(cityState)} • ${escapeHtml(freshnessLabel)}</p>
           </div>
           <div class="best-nearby__actions">
-            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}">View</button>
-            <button type="button" class="btn-primary" data-best-nearby-go="${lat},${lng}">Go</button>
+            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">View</button>
+            <button type="button" class="btn-primary" data-best-nearby-go="${lat},${lng}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Go</button>
           </div>
         </article>
       `;
@@ -535,6 +563,7 @@ function initBestNearbyQuickPickActions() {
       const stationId = viewButton.getAttribute("data-best-nearby-open");
       trackPlausible("best_nearby_action", {
         action: "view",
+        ...getQuickPickEventProps(viewButton),
       });
       if (stationId && mapInstance) {
         void handleMapClick(stationId);
@@ -558,6 +587,7 @@ function initBestNearbyQuickPickActions() {
 
     trackPlausible("best_nearby_action", {
       action: "go",
+      ...getQuickPickEventProps(goButton),
     });
     const destination = encodeURIComponent(`${lat},${lng}`);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`, "_blank", "noopener,noreferrer");
