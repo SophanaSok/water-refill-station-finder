@@ -27,6 +27,7 @@ let bestNearbyRenderSequence = 0;
 let bestNearbyRenderedAtMs: number | null = null;
 let bestNearbyPreviousRankSignature: string | null = null;
 let bestNearbyRankChangedCount = 0;
+const analyticsSessionId = getOrCreateAnalyticsSessionId();
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -60,6 +61,27 @@ function setStoredBestNearbyHintSeen(value: boolean) {
     localStorage.setItem("bestNearbyHintSeen", value ? "true" : "false");
   } catch {
     // Ignore storage write failures.
+  }
+}
+
+function getOrCreateAnalyticsSessionId(): string {
+  const key = "analyticsSessionId";
+
+  try {
+    const stored = localStorage.getItem(key);
+    if (stored) {
+      return stored;
+    }
+
+    const generated =
+      typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `sid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+
+    localStorage.setItem(key, generated);
+    return generated;
+  } catch {
+    return `sid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
   }
 }
 
@@ -398,6 +420,7 @@ function getQuickPickEventProps(button: HTMLElement): Record<string, string> {
     free_only_mode: bestNearbyFreeOnly ? "true" : "false",
     render_seq: String(bestNearbyRenderSequence),
     rank_changed_count: String(bestNearbyRankChangedCount),
+    session_id: analyticsSessionId,
     ...(elapsedMs !== null ? { elapsed_ms_since_render: String(elapsedMs) } : {}),
   };
 }
@@ -447,6 +470,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
       free_only: bestNearbyFreeOnly ? "true" : "false",
       render_seq: String(bestNearbyRenderSequence),
       rank_changed_count: String(bestNearbyRankChangedCount),
+      session_id: analyticsSessionId,
     });
   }
 
@@ -460,6 +484,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
         free_only: "true",
         render_seq: String(bestNearbyRenderSequence),
         rank_changed_count: String(bestNearbyRankChangedCount),
+        session_id: analyticsSessionId,
       });
       list.innerHTML = `
         <p class="best-nearby__empty">
@@ -477,6 +502,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
       free_only: bestNearbyFreeOnly ? "true" : "false",
       render_seq: String(bestNearbyRenderSequence),
       rank_changed_count: String(bestNearbyRankChangedCount),
+      session_id: analyticsSessionId,
     });
     return;
   }
@@ -487,6 +513,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
     free_only: bestNearbyFreeOnly ? "true" : "false",
     render_seq: String(bestNearbyRenderSequence),
     rank_changed_count: String(bestNearbyRankChangedCount),
+    session_id: analyticsSessionId,
   });
   list.innerHTML = picks
     .map((feature, index) => {
@@ -549,14 +576,14 @@ function initBestNearbyQuickPickActions() {
     bestNearbyHintSeen = true;
     setStoredBestNearbyHintSeen(true);
     hint.style.display = "none";
-    trackPlausible("best_nearby_tip_dismissed", { reason });
+    trackPlausible("best_nearby_tip_dismissed", { reason, session_id: analyticsSessionId });
   };
 
   if (bestNearbyHintSeen) {
     hint.style.display = "none";
   } else {
     hint.style.display = "inline-flex";
-    trackPlausible("best_nearby_tip_shown");
+    trackPlausible("best_nearby_tip_shown", { session_id: analyticsSessionId });
     window.setTimeout(() => {
       dismissHint("timeout");
     }, 9000);
@@ -572,6 +599,7 @@ function initBestNearbyQuickPickActions() {
     setStoredBestNearbyFreeOnly(bestNearbyFreeOnly);
     trackPlausible("best_nearby_filter_toggled", {
       free_only: bestNearbyFreeOnly ? "true" : "false",
+      session_id: analyticsSessionId,
     });
     if (lastNearbyStationsGeoJSON) {
       renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
@@ -588,6 +616,7 @@ function initBestNearbyQuickPickActions() {
       trackPlausible("best_nearby_filter_toggled", {
         free_only: "false",
         source: "empty_reset",
+        session_id: analyticsSessionId,
       });
       if (lastNearbyStationsGeoJSON) {
         renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
