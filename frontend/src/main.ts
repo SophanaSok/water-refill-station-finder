@@ -475,7 +475,7 @@ function initBestNearbyQuickPickActions() {
     return;
   }
 
-  const dismissHint = () => {
+  const dismissHint = (reason: "button" | "interaction" | "timeout") => {
     if (bestNearbyHintSeen) {
       return;
     }
@@ -483,23 +483,30 @@ function initBestNearbyQuickPickActions() {
     bestNearbyHintSeen = true;
     setStoredBestNearbyHintSeen(true);
     hint.style.display = "none";
+    trackPlausible("best_nearby_tip_dismissed", { reason });
   };
 
   if (bestNearbyHintSeen) {
     hint.style.display = "none";
   } else {
     hint.style.display = "inline-flex";
+    trackPlausible("best_nearby_tip_shown");
     window.setTimeout(() => {
-      dismissHint();
+      dismissHint("timeout");
     }, 9000);
   }
 
-  hintDismiss.addEventListener("click", dismissHint);
+  hintDismiss.addEventListener("click", () => {
+    dismissHint("button");
+  });
 
   freeOnlyToggle.addEventListener("click", () => {
-    dismissHint();
+    dismissHint("interaction");
     bestNearbyFreeOnly = !bestNearbyFreeOnly;
     setStoredBestNearbyFreeOnly(bestNearbyFreeOnly);
+    trackPlausible("best_nearby_filter_toggled", {
+      free_only: bestNearbyFreeOnly ? "true" : "false",
+    });
     if (lastNearbyStationsGeoJSON) {
       renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
     }
@@ -512,6 +519,10 @@ function initBestNearbyQuickPickActions() {
     if (resetFreeButton) {
       bestNearbyFreeOnly = false;
       setStoredBestNearbyFreeOnly(false);
+      trackPlausible("best_nearby_filter_toggled", {
+        free_only: "false",
+        source: "empty_reset",
+      });
       if (lastNearbyStationsGeoJSON) {
         renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
       }
@@ -520,8 +531,11 @@ function initBestNearbyQuickPickActions() {
 
     const viewButton = target.closest<HTMLButtonElement>("[data-best-nearby-open]");
     if (viewButton) {
-      dismissHint();
+      dismissHint("interaction");
       const stationId = viewButton.getAttribute("data-best-nearby-open");
+      trackPlausible("best_nearby_action", {
+        action: "view",
+      });
       if (stationId && mapInstance) {
         void handleMapClick(stationId);
       }
@@ -533,7 +547,7 @@ function initBestNearbyQuickPickActions() {
       return;
     }
 
-    dismissHint();
+    dismissHint("interaction");
 
     const coordinates = goButton.getAttribute("data-best-nearby-go")?.split(",") ?? [];
     const lat = Number.parseFloat(coordinates[0] ?? "");
@@ -542,6 +556,9 @@ function initBestNearbyQuickPickActions() {
       return;
     }
 
+    trackPlausible("best_nearby_action", {
+      action: "go",
+    });
     const destination = encodeURIComponent(`${lat},${lng}`);
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`, "_blank", "noopener,noreferrer");
   });
