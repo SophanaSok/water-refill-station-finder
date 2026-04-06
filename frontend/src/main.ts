@@ -29,6 +29,7 @@ let bestNearbyPreviousRankSignature: string | null = null;
 let bestNearbyRankChangedCount = 0;
 const analyticsSessionId = getOrCreateAnalyticsSessionId();
 let desktopDetailsExpanded = getStoredDesktopDetailsExpanded();
+let filterCollapsedBeforeSearch: "true" | "false" | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -900,10 +901,30 @@ function setSearchOverlayActive(active: boolean) {
   const searchInput = getElement<HTMLInputElement>("#search");
   const searchDropdown = getElement<HTMLDivElement>("#search-dropdown");
   const searchClose = document.querySelector<HTMLButtonElement>("#search-close");
+  const filterPills = document.querySelector<HTMLElement>(".filter-pills");
+  const filterToggle = document.querySelector<HTMLButtonElement>(".filter-pills__toggle");
+  const isCompactViewport = window.matchMedia("(max-width: 1023px)").matches;
 
   appShell.setAttribute("data-search-active", String(active));
   overlay.style.display = active ? "block" : "none";
   overlay.setAttribute("aria-hidden", active ? "false" : "true");
+
+  if (filterPills && filterToggle && isCompactViewport) {
+    if (active) {
+      if (filterCollapsedBeforeSearch === null) {
+        filterCollapsedBeforeSearch = (filterPills.getAttribute("data-collapsed") as "true" | "false") ?? "true";
+      }
+
+      filterPills.setAttribute("data-collapsed", "true");
+      filterToggle.setAttribute("aria-expanded", "false");
+    } else {
+      if (filterCollapsedBeforeSearch !== null) {
+        filterPills.setAttribute("data-collapsed", filterCollapsedBeforeSearch);
+        filterToggle.setAttribute("aria-expanded", filterCollapsedBeforeSearch === "false" ? "true" : "false");
+        filterCollapsedBeforeSearch = null;
+      }
+    }
+  }
 
   if (searchClose) {
     searchClose.setAttribute("aria-hidden", active ? "false" : "true");
