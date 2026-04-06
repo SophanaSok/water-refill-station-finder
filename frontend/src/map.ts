@@ -26,6 +26,7 @@ class MapControllerImpl {
   private readonly stationPreviewPopup: maplibregl.Popup;
   private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
   private stationClickCallback: (stationId: string) => void = () => {};
+  private stationsDataCallback: (geojson: StationFeatureCollection) => void = () => {};
   private mapMoveCallback: (center: Center) => void = () => {};
   private visibleStationsCallback: (count: number) => void = () => {};
   private currentFilters: StationFilters = {};
@@ -85,6 +86,7 @@ class MapControllerImpl {
     const typed = geojson as StationFeatureCollection;
     this.pendingData = typed;
     this.hasLoadedStations = true;
+    this.stationsDataCallback(typed);
 
     if (!this.map.isStyleLoaded()) {
       return;
@@ -170,6 +172,10 @@ class MapControllerImpl {
 
   onMapMove(callback: (center: Center) => void): void {
     this.mapMoveCallback = callback;
+  }
+
+  onStationsDataChange(callback: (geojson: StationFeatureCollection) => void): void {
+    this.stationsDataCallback = callback;
   }
 
   onVisibleStationsChange(callback: (count: number) => void): void {
@@ -551,6 +557,7 @@ export type MapController = {
   setFilter: (filters: StationFilters) => void;
   showUserLocation: (lng: number, lat: number) => void;
   onStationClick: (callback: (stationId: string) => void) => void;
+  onStationsDataChange: (callback: (geojson: FeatureCollection) => void) => void;
   onMapMove: (callback: (center: { lng: number; lat: number }) => void) => void;
   onVisibleStationsChange: (callback: (count: number) => void) => void;
   getCurrentCenter: () => { lng: number; lat: number };

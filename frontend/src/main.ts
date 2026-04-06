@@ -1,6 +1,6 @@
 import type { MapController } from "./map";
 import { ApiErrorResponse, fetchStations, geocodeSearch, fetchStationById } from "./api";
-import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
+import { openStationDetail, updateUserLocation, loadSavedStations, calculateDistance } from "./stationDetail";
 import { initializeAuth } from "./auth";
 import { initAnalytics, startTiming, trackPlausible, trackTiming } from "./analytics";
 import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
@@ -22,6 +22,7 @@ let hasTrackedFirstStationsLoad = false;
 let mapStateFreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
+type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
 
 function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
   const firstFeature = geojson.features[0];
@@ -273,6 +274,100 @@ function updateMapStateCount(count: number) {
   stateText.textContent = `${baseText} • ${filterSummary} • ${count} result${count === 1 ? "" : "s"}`;
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
+  const section = document.querySelector<HTMLElement>("#best-nearby");
+  const list = document.querySelector<HTMLElement>("#best-nearby-list");
+  if (!section || !list) {
+    return;
+  }
+
+  const picks = geojson.features
+    .filter((feature): feature is NearbyStationsGeoJSON["features"][number] => {
+      const stationId = feature.properties?.id;
+      return feature.geometry.type === "Point" && typeof stationId === "string";
+    })
+    .slice(0, 3);
+
+  if (picks.length === 0) {
+    section.style.display = "none";
+    list.innerHTML = "";
+    return;
+  }
+
+  section.style.display = "grid";
+  list.innerHTML = picks
+    .map((feature) => {
+      const station = feature.properties;
+      const [lng, lat] = feature.geometry.coordinates;
+      const stationName = escapeHtml(station.name || "Water refill station");
+      const typeLabel = escapeHtml((station.type || "unknown").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()));
+      const cityState = [station.city, station.state].filter(Boolean).join(", ") || "Location unknown";
+      const distance =
+        lastGeolocationResult
+          ? calculateDistance(lastGeolocationResult.lat, lastGeolocationResult.lng, lat, lng)
+          : null;
+      const summary = [typeLabel, station.is_free ? "Free" : "Paid", distance].filter(Boolean).join(" • ");
+
+      return `
+        <article class="best-nearby__item">
+          <div class="best-nearby__copy">
+            <h3>${stationName}</h3>
+            <p>${escapeHtml(summary || "Refill station")}</p>
+            <p>${escapeHtml(cityState)}</p>
+          </div>
+          <div class="best-nearby__actions">
+            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}">View</button>
+            <button type="button" class="btn-primary" data-best-nearby-go="${lat},${lng}">Go</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function initBestNearbyQuickPickActions() {
+  const list = document.querySelector<HTMLElement>("#best-nearby-list");
+  if (!list) {
+    return;
+  }
+
+  list.addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const viewButton = target.closest<HTMLButtonElement>("[data-best-nearby-open]");
+    if (viewButton) {
+      const stationId = viewButton.getAttribute("data-best-nearby-open");
+      if (stationId && mapInstance) {
+        void handleMapClick(stationId);
+      }
+      return;
+    }
+
+    const goButton = target.closest<HTMLButtonElement>("[data-best-nearby-go]");
+    if (!goButton) {
+      return;
+    }
+
+    const coordinates = goButton.getAttribute("data-best-nearby-go")?.split(",") ?? [];
+    const lat = Number.parseFloat(coordinates[0] ?? "");
+    const lng = Number.parseFloat(coordinates[1] ?? "");
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return;
+    }
+
+    const destination = encodeURIComponent(`${lat},${lng}`);
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=walking`, "_blank", "noopener,noreferrer");
+  });
+}
+
 async function openAddStationOverlay() {
   const { openAddStation } = await import("./addStation");
   openAddStation();
@@ -355,6 +450,11 @@ function renderAppShell() {
       <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
         <span id="map-state-text" class="map-state-bar__text">Showing nearby stations • All filters • 0 results</span>
       </div>
+
+      <section id="best-nearby" class="best-nearby" style="display: none;" aria-label="Best nearby stations">
+        <header class="best-nearby__header">Best nearby</header>
+        <div id="best-nearby-list" class="best-nearby__list"></div>
+      </section>
 
       <div class="filter-pills" data-collapsed="true">
         <button class="filter-pills__toggle" type="button" aria-expanded="false">
@@ -1292,6 +1392,7 @@ async function main() {
 
   // Initialize bottom nav tabs early so non-map overlays remain responsive.
   initBottomNav();
+  initBestNearbyQuickPickActions();
 
   // Wait for idle or first interaction before loading the heavy map bundle.
   startTiming("shell_to_map_bundle_ready");
@@ -1303,6 +1404,9 @@ async function main() {
   startTiming("map_bootstrap_ready");
   mapInstance = initMap("map");
   syncSavedStationsMapInstance(mapInstance);
+  mapInstance.onStationsDataChange((geojson) => {
+    renderBestNearbyQuickPicks(geojson as NearbyStationsGeoJSON);
+  });
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
     updateMapStateCount(count);
