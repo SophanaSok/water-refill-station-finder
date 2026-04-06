@@ -176,11 +176,12 @@ export async function fetchStationById(id: string): Promise<StationDetail> {
   return apiFetch<StationDetail>(`/api/stations/${id}`);
 }
 
-/**
- * Geocode an address string to coordinates
- */
-export async function geocodeSearch(query: string): Promise<GeocodeResult[]> {
+export async function geocodeSearch(
+  query: string,
+  options?: { signal?: AbortSignal },
+): Promise<GeocodeResult[]> {
   return apiFetch<GeocodeResult[]>("/api/geocode", {
+    signal: options?.signal,
     params: { q: query },
   });
 }

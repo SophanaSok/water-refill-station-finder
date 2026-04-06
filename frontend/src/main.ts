@@ -562,6 +562,10 @@ class SearchBarController {
   private dropdown: HTMLDivElement;
   private resultsList: HTMLUListElement;
   private map;
+  private activeGeocodeController: AbortController | null = null;
+  private geocodeRequestId = 0;
+  private geocodeCache = new Map<string, Array<{ place_name: string; center: [number, number] }>>();
+  private lastSearchedQuery = "";
 
   constructor(mapInstance: MapController) {
     this.input = getElement<HTMLInputElement>("#search");
@@ -576,16 +580,55 @@ class SearchBarController {
 
   private initInputHandler() {
     const debouncedSearch = debounce(async (query: string) => {
-      if (query.length < 2) {
+      const normalizedQuery = query.trim();
+
+      if (normalizedQuery.length < 2) {
+        this.lastSearchedQuery = "";
+        this.activeGeocodeController?.abort();
         this.dropdown.style.display = "none";
         return;
       }
 
+      if (normalizedQuery === this.lastSearchedQuery) {
+        return;
+      }
+
+      this.lastSearchedQuery = normalizedQuery;
+
+      const cachedResults = this.geocodeCache.get(normalizedQuery);
+      if (cachedResults) {
+        this.renderResults(cachedResults);
+        this.dropdown.style.display = "block";
+        return;
+      }
+
+      this.activeGeocodeController?.abort();
+      const controller = new AbortController();
+      this.activeGeocodeController = controller;
+      const requestId = ++this.geocodeRequestId;
+
       try {
-        const results = await geocodeSearch(query);
+        const results = await geocodeSearch(normalizedQuery, { signal: controller.signal });
+
+        if (requestId !== this.geocodeRequestId) {
+          return;
+        }
+
+        this.geocodeCache.set(normalizedQuery, results);
+        if (this.geocodeCache.size > 20) {
+          const oldestKey = this.geocodeCache.keys().next().value;
+          if (oldestKey) {
+            this.geocodeCache.delete(oldestKey);
+          }
+        }
+
         this.renderResults(results);
         this.dropdown.style.display = "block";
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
         console.error("Geocode search failed:", error);
         this.dropdown.style.display = "none";
       }
@@ -598,12 +641,14 @@ class SearchBarController {
   }
 
   private renderResults(results: Array<{ place_name: string; center: [number, number] }>) {
-    if (results.length === 0) {
+    const limitedResults = results.slice(0, 6);
+
+    if (limitedResults.length === 0) {
       this.resultsList.innerHTML = `<li>${renderSearchNoResultsEmptyState(this.input.value)}</li>`;
       return;
     }
 
-    this.resultsList.innerHTML = results
+    this.resultsList.innerHTML = limitedResults
       .map(
         (result, i) => `
       <li>
@@ -656,6 +701,7 @@ class SearchBarController {
   private initEscapeKey() {
     this.input.addEventListener("keydown", (e) => {
       if (e.key === "Escape") {
+        this.activeGeocodeController?.abort();
         if (getElement<HTMLDivElement>(".app-shell").getAttribute("data-search-active") === "true") {
           setSearchOverlayActive(false);
           return;
