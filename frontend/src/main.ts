@@ -19,7 +19,7 @@ let lastGeolocationResult: { lat: number; lng: number } | null = null;
 let savedStationsModulePromise: Promise<typeof import("./savedStations")> | null = null;
 let profileModulePromise: Promise<typeof import("./profile")> | null = null;
 let hasTrackedFirstStationsLoad = false;
-let searchStatusPillHideTimer: ReturnType<typeof setTimeout> | null = null;
+let mapStateFreshTimer: ReturnType<typeof setTimeout> | null = null;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 
@@ -214,25 +214,31 @@ function getElement<T extends Element>(selector: string): T {
 }
 
 function showUserSearchStatus(message: string) {
-  const pill = document.querySelector<HTMLElement>("#search-status-pill");
-  if (!pill) return;
+  const stateBar = document.querySelector<HTMLElement>("#map-state-bar");
+  const stateText = document.querySelector<HTMLElement>("#map-state-text");
+  if (!stateBar || !stateText) return;
 
-  pill.textContent = `✓ ${message}`;
-  pill.style.display = "inline-flex";
-  pill.setAttribute("aria-hidden", "false");
-  pill.classList.remove("is-fresh");
+  stateText.textContent = `Showing: ${message}`;
+  stateBar.classList.remove("is-fresh");
   // Restart highlight animation each time search is applied.
   window.requestAnimationFrame(() => {
-    pill.classList.add("is-fresh");
+    stateBar.classList.add("is-fresh");
   });
 
-  if (searchStatusPillHideTimer) {
-    clearTimeout(searchStatusPillHideTimer);
+  if (mapStateFreshTimer) {
+    clearTimeout(mapStateFreshTimer);
   }
 
-  searchStatusPillHideTimer = setTimeout(() => {
-    pill.classList.remove("is-fresh");
+  mapStateFreshTimer = setTimeout(() => {
+    stateBar.classList.remove("is-fresh");
   }, 3000);
+}
+
+function updateMapStateCount(count: number) {
+  const countBadge = document.querySelector<HTMLElement>("#map-state-count");
+  if (!countBadge) return;
+
+  countBadge.textContent = `${count} result${count === 1 ? "" : "s"}`;
 }
 
 async function openAddStationOverlay() {
@@ -325,8 +331,12 @@ function renderAppShell() {
         <div id="search-dropdown" class="search-dropdown" style="display: none;">
           <ul id="search-results" role="listbox"></ul>
         </div>
-        <div id="search-status-pill" class="search-status-pill" aria-live="polite" aria-atomic="true" aria-hidden="true" style="display: none;"></div>
       </form>
+
+      <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
+        <span id="map-state-text" class="map-state-bar__text">Showing: nearby stations</span>
+        <span id="map-state-count" class="map-state-bar__count">0 results</span>
+      </div>
 
       <div class="filter-pills" role="toolbar" aria-label="Filters">
         <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
@@ -1199,6 +1209,7 @@ async function main() {
   syncSavedStationsMapInstance(mapInstance);
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
+    updateMapStateCount(count);
   });
   trackTiming("perf_map_ready", "map_bootstrap_ready");
   startTiming("map_init_to_first_stations");
