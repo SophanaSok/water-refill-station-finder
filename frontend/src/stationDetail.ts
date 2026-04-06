@@ -43,7 +43,7 @@ export function openStationDetail(station: StationDetail): void {
   sheet.scrollTop = 0;
 
   trackPlausible("station_viewed", {
-    type: station.type,
+    type: typeof station.type === "string" && station.type.length > 0 ? station.type : "unknown",
     city: station.city,
   });
 }
@@ -130,6 +130,7 @@ function getBottomSheet(): HTMLElement {
 // ============================================================================
 
 function buildStationDetailHTML(station: StationDetail): string {
+  const stationType = typeof station.type === "string" && station.type.length > 0 ? station.type : "unknown";
   const distance =
     userLocation && station.latitude && station.longitude
       ? calculateDistance(userLocation.lat, userLocation.lng, station.latitude, station.longitude)
@@ -142,15 +143,15 @@ function buildStationDetailHTML(station: StationDetail): string {
   const photoHtml = hasPhotoUrl
     ? `<img id="station-photo" src="${escapeHtml(station.photo_url ?? "")}" alt="${escapeHtml(station.name)}" style="width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: var(--radius-md);" />`
     : `<div class="station-photo-placeholder" style="width: 100%; aspect-ratio: 1; background: color-mix(in srgb, var(--color-primary) 12%, transparent 88%); border-radius: var(--radius-md); display: flex; align-items: center; justify-content: center; font-size: 3rem;">
-         ${getStationTypeIconMarkup(station.type)}
+         ${getStationTypeIconMarkup(stationType)}
        </div>`;
 
   const freshnessHtml = getFreshnessHTML(station);
-  const typeLabel = station.type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const typeLabel = stationType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const costBadge = station.is_free ? "Free" : "Paid";
   const verifiedBadge = station.is_verified ? `<span class="badge">✓ Verified</span>` : "";
   const distanceBadge = distance ? `<span class="badge">${distance}</span>` : "";
-  const typeBadge = `<span class="badge badge--type"><span class="badge-icon">${getStationTypeIconMarkup(station.type)}</span>${escapeHtml(typeLabel)}</span>`;
+  const typeBadge = `<span class="badge badge--type"><span class="badge-icon">${getStationTypeIconMarkup(stationType)}</span>${escapeHtml(typeLabel)}</span>`;
 
   return `
     <article id="station-detail" class="station-detail">

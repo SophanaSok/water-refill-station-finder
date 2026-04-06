@@ -2,8 +2,10 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 import { randomUUID } from "node:crypto";
+import { toNodeHandler } from "better-auth/node";
 import { env } from "./env.js";
 import { sql } from "./db/client.js";
+import { auth } from "./lib/auth.js";
 import stationsRoutes from "./routes/stations.js";
 import geocodeRoutes from "./routes/geocode.js";
 import submitRoutes from "./routes/submit.js";
@@ -18,6 +20,7 @@ export type AppOptions = {
 };
 
 export function buildApp(options: AppOptions = {}) {
+  const authNodeHandler = toNodeHandler(auth);
   const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, "");
 
   const allowedOrigins = new Set(
@@ -101,6 +104,7 @@ export function buildApp(options: AppOptions = {}) {
   });
 
   void server.register(cors, {
+    credentials: true,
     origin: (origin, callback) => {
       if (!origin) {
         callback(null, true);
@@ -120,6 +124,14 @@ export function buildApp(options: AppOptions = {}) {
 
   void server.register(stationsRoutes, { prefix: "/api/stations" });
   void server.register(geocodeRoutes, { prefix: "/api/geocode" });
+  server.route({
+    method: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    url: "/api/auth/*",
+    handler: async (request, reply) => {
+      reply.hijack();
+      await authNodeHandler(request.raw, reply.raw);
+    },
+  });
   void server.register(submitRoutes, { prefix: "/api/submit" });
   void server.register(confirmRoutes, { prefix: "/api/confirm" });
   void server.register(flagsRoutes, { prefix: "/api/flags" });

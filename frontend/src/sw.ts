@@ -10,7 +10,7 @@ type CacheEntry = {
   timestamp: number;
 };
 
-const PRECACHE_NAME = "pwa-precache-v1";
+const PRECACHE_NAME = "pwa-precache-v2";
 const STATIONS_CACHE_NAME = "stations-cache";
 const TILES_CACHE_NAME = "map-tiles";
 const CACHE_DB_NAME = "pwa-cache-metadata-v1";
@@ -76,7 +76,6 @@ async function precacheAppShell() {
     FONTSHARE_CSS_URL,
     MAPLIBRE_CSS_URL,
     MAPLIBRE_JS_URL,
-    OPENFREE_MAP_STYLE_URL,
     ...APP_ICON_URLS,
   ]);
 
@@ -134,7 +133,6 @@ function shouldUsePrecache(requestUrl: URL): boolean {
   ) ||
   requestUrl.toString() === MAPLIBRE_CSS_URL ||
   requestUrl.toString() === MAPLIBRE_JS_URL ||
-  requestUrl.toString() === OPENFREE_MAP_STYLE_URL ||
   requestUrl.toString() === FONTSHARE_CSS_URL;
 }
 
@@ -143,7 +141,13 @@ function isStationsRequest(url: URL): boolean {
 }
 
 function getFetchInit(url: string): RequestInit {
-  return new URL(url).origin === sw.location.origin ? { cache: "no-cache" } : { mode: "no-cors" };
+  const parsedUrl = new URL(url);
+
+  if (parsedUrl.toString() === OPENFREE_MAP_STYLE_URL) {
+    return { cache: "no-cache", mode: "cors" };
+  }
+
+  return parsedUrl.origin === sw.location.origin ? { cache: "no-cache" } : { mode: "no-cors" };
 }
 
 async function cacheFirst(request: Request): Promise<Response> {
