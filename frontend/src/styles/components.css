@@ -1613,6 +1613,10 @@
 }
 
 @media (max-width: 420px) {
+  .app-shell[data-search-active="true"] .best-nearby {
+    display: none !important;
+  }
+
   .search-bar {
     top: var(--space-3);
     width: min(96vw, 24rem);
