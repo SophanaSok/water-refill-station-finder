@@ -24,6 +24,7 @@ type Center = { lng: number; lat: number };
 class MapControllerImpl {
   private readonly map: Map;
   private readonly stationPreviewPopup: maplibregl.Popup;
+  private selectionPulseTimer: ReturnType<typeof setTimeout> | null = null;
   private stationClickCallback: (stationId: string) => void = () => {};
   private mapMoveCallback: (center: Center) => void = () => {};
   private visibleStationsCallback: (count: number) => void = () => {};
@@ -269,6 +270,30 @@ class MapControllerImpl {
       },
     });
 
+    this.map.addSource("selected-pin", {
+      type: "geojson",
+      data: {
+        type: "FeatureCollection",
+        features: [],
+      },
+    });
+
+    this.map.addLayer({
+      id: "selected-pin-ring",
+      type: "circle",
+      source: "selected-pin",
+      layout: {
+        visibility: "none",
+      },
+      paint: {
+        "circle-color": "rgba(0,0,0,0)",
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 16, 10, 19, 14, 22, 18, 25],
+        "circle-stroke-color": "#f59e0b",
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 12, 2.5, 18, 3],
+        "circle-opacity": 0.95,
+      },
+    });
+
     this.map.on("click", "clusters", (event) => {
       const features = this.map.queryRenderedFeatures(event.point, { layers: ["clusters"] });
       const firstFeature = features[0];
@@ -293,6 +318,7 @@ class MapControllerImpl {
       const stationId = firstFeature?.properties?.id;
 
       if (typeof stationId === "string") {
+        this.pulseSelectedPoint(firstFeature);
         this.stationPreviewPopup.remove();
         this.stationClickCallback(stationId);
       }
@@ -342,6 +368,54 @@ class MapControllerImpl {
       .setLngLat([lng, lat])
       .setHTML(popupHtml)
       .addTo(this.map);
+  }
+
+  private pulseSelectedPoint(feature: maplibregl.MapGeoJSONFeature | undefined): void {
+    const geometry = feature?.geometry;
+    if (!geometry || geometry.type !== "Point") {
+      return;
+    }
+
+    const selectedSource = this.map.getSource("selected-pin") as GeoJSONSource | undefined;
+    if (!selectedSource || !this.map.getLayer("selected-pin-ring")) {
+      return;
+    }
+
+    const [lng, lat] = geometry.coordinates;
+    const pulseData: FeatureCollection = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [lng, lat],
+          },
+          properties: {},
+        },
+      ],
+    };
+
+    selectedSource.setData(pulseData);
+    this.map.setLayoutProperty("selected-pin-ring", "visibility", "visible");
+
+    if (this.selectionPulseTimer) {
+      clearTimeout(this.selectionPulseTimer);
+    }
+
+    this.selectionPulseTimer = setTimeout(() => {
+      const source = this.map.getSource("selected-pin") as GeoJSONSource | undefined;
+      if (!source || !this.map.getLayer("selected-pin-ring")) {
+        return;
+      }
+
+      source.setData({
+        type: "FeatureCollection",
+        features: [],
+      });
+      this.map.setLayoutProperty("selected-pin-ring", "visibility", "none");
+      this.selectionPulseTimer = null;
+    }, 420);
   }
 
   private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>): string {
