@@ -20,6 +20,8 @@ let savedStationsModulePromise: Promise<typeof import("./savedStations")> | null
 let profileModulePromise: Promise<typeof import("./profile")> | null = null;
 let hasTrackedFirstStationsLoad = false;
 let mapStateFreshTimer: ReturnType<typeof setTimeout> | null = null;
+let lastNearbyStationsGeoJSON: NearbyStationsGeoJSON | null = null;
+let bestNearbyFreeOnly = false;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -346,14 +348,24 @@ function getQuickPickReasons(
 function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
   const section = document.querySelector<HTMLElement>("#best-nearby");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
+  const freeOnlyToggle = document.querySelector<HTMLButtonElement>("#best-nearby-free-only");
   if (!section || !list) {
     return;
+  }
+
+  if (freeOnlyToggle) {
+    freeOnlyToggle.setAttribute("aria-pressed", bestNearbyFreeOnly ? "true" : "false");
+    freeOnlyToggle.textContent = bestNearbyFreeOnly ? "Showing free only" : "Hide paid";
   }
 
   const picks = geojson.features
     .filter((feature): feature is NearbyStationsGeoJSON["features"][number] => {
       const stationId = feature.properties?.id;
-      return feature.geometry.type === "Point" && typeof stationId === "string";
+      return (
+        feature.geometry.type === "Point" &&
+        typeof stationId === "string" &&
+        (!bestNearbyFreeOnly || feature.properties.is_free)
+      );
     })
     .sort((a, b) => {
       const [aLng, aLat] = a.geometry.coordinates;
@@ -363,6 +375,17 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
     .slice(0, 3);
 
   if (picks.length === 0) {
+    if (geojson.features.length > 0 && bestNearbyFreeOnly) {
+      section.style.display = "grid";
+      list.innerHTML = `
+        <p class="best-nearby__empty">
+          No free stations in this map area.
+          <button type="button" class="best-nearby__empty-action" data-best-nearby-reset-free="true">Show all</button>
+        </p>
+      `;
+      return;
+    }
+
     section.style.display = "none";
     list.innerHTML = "";
     return;
@@ -411,13 +434,31 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
 }
 
 function initBestNearbyQuickPickActions() {
+  const freeOnlyToggle = document.querySelector<HTMLButtonElement>("#best-nearby-free-only");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
-  if (!list) {
+  if (!list || !freeOnlyToggle) {
     return;
   }
 
+  freeOnlyToggle.addEventListener("click", () => {
+    bestNearbyFreeOnly = !bestNearbyFreeOnly;
+    if (lastNearbyStationsGeoJSON) {
+      renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
+    }
+  });
+
   list.addEventListener("click", (event) => {
     const target = event.target as HTMLElement;
+
+    const resetFreeButton = target.closest<HTMLButtonElement>("[data-best-nearby-reset-free]");
+    if (resetFreeButton) {
+      bestNearbyFreeOnly = false;
+      if (lastNearbyStationsGeoJSON) {
+        renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
+      }
+      return;
+    }
+
     const viewButton = target.closest<HTMLButtonElement>("[data-best-nearby-open]");
     if (viewButton) {
       const stationId = viewButton.getAttribute("data-best-nearby-open");
@@ -528,7 +569,10 @@ function renderAppShell() {
       </div>
 
       <section id="best-nearby" class="best-nearby" style="display: none;" aria-label="Best nearby stations">
-        <header class="best-nearby__header">Best nearby</header>
+        <header class="best-nearby__header">
+          <span>Best nearby</span>
+          <button id="best-nearby-free-only" type="button" class="best-nearby__toggle" aria-pressed="false">Hide paid</button>
+        </header>
         <div id="best-nearby-list" class="best-nearby__list"></div>
       </section>
 
@@ -1481,7 +1525,8 @@ async function main() {
   mapInstance = initMap("map");
   syncSavedStationsMapInstance(mapInstance);
   mapInstance.onStationsDataChange((geojson) => {
-    renderBestNearbyQuickPicks(geojson as NearbyStationsGeoJSON);
+    lastNearbyStationsGeoJSON = geojson as NearbyStationsGeoJSON;
+    renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
   });
   mapInstance.onVisibleStationsChange((count) => {
     setMapEmptyState(count);
