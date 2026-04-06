@@ -979,12 +979,15 @@
     grid-column: 1;
     grid-row: 1;
     width: auto;
-    margin: var(--space-5) var(--space-4) 0;
+    margin: var(--space-4) var(--space-4) 0;
     padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
     background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
     box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
+    position: sticky;
+    top: var(--space-4);
+    z-index: 5;
 
     & input {
       font-size: var(--text-sm);
@@ -998,7 +1001,7 @@
   .map-state-bar {
     grid-column: 1;
     grid-row: 2;
-    margin: var(--space-3) var(--space-4) 0;
+    margin: var(--space-2) var(--space-4) 0;
     width: auto;
     transform: none;
     padding: 0.42rem 0.65rem;
@@ -1021,7 +1024,7 @@
   .filter-pills {
     grid-column: 1;
     grid-row: 3;
-    margin: var(--space-3) var(--space-4) 0;
+    margin: var(--space-2) var(--space-4) 0;
     padding: 0;
     border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
     border-radius: var(--radius-lg);
@@ -1078,7 +1081,7 @@
     height: 100%;
     max-height: 100%;
     min-height: 0;
-    margin: var(--space-3) var(--space-4) var(--space-4);
+    margin: var(--space-2) var(--space-4) var(--space-4);
     border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
     border-radius: var(--radius-lg);
     background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
