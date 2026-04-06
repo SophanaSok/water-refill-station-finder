@@ -1299,7 +1299,11 @@
   }
 
   .bottom-sheet[data-state="peek"] {
-    height: 3rem;
+    height: 100%;
+  }
+
+  .bottom-sheet[data-state="peek"] .content {
+    display: grid;
   }
 
   .confirmation-bar {
