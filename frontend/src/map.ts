@@ -293,13 +293,14 @@ class MapControllerImpl {
       const stationId = firstFeature?.properties?.id;
 
       if (typeof stationId === "string") {
-        this.showStationPreview(firstFeature, true);
+        this.stationPreviewPopup.remove();
+        this.stationClickCallback(stationId);
       }
     });
 
     this.map.on("mousemove", "unclustered-point", (event) => {
       const firstFeature = event.features?.[0];
-      this.showStationPreview(firstFeature, false);
+      this.showStationPreview(firstFeature);
     });
 
     this.map.on("mouseenter", "clusters", () => {
@@ -323,24 +324,9 @@ class MapControllerImpl {
       this.stationPreviewPopup.remove();
     });
 
-    this.map.getContainer().addEventListener("click", (event) => {
-      const target = event.target as HTMLElement | null;
-      const button = target?.closest<HTMLButtonElement>("[data-station-preview-open]");
-      if (!button) {
-        return;
-      }
-
-      const stationId = button.getAttribute("data-station-preview-open");
-      if (!stationId) {
-        return;
-      }
-
-      this.stationPreviewPopup.remove();
-      this.stationClickCallback(stationId);
-    });
   }
 
-  private showStationPreview(feature: maplibregl.MapGeoJSONFeature | undefined, includeAction: boolean): void {
+  private showStationPreview(feature: maplibregl.MapGeoJSONFeature | undefined): void {
     const geometry = feature?.geometry;
     const properties = feature?.properties as Partial<GeoJSONStationProperties> | undefined;
 
@@ -350,7 +336,7 @@ class MapControllerImpl {
     }
 
     const [lng, lat] = geometry.coordinates;
-    const popupHtml = this.buildStationPreviewHtml(properties, includeAction);
+    const popupHtml = this.buildStationPreviewHtml(properties);
 
     this.stationPreviewPopup
       .setLngLat([lng, lat])
@@ -358,7 +344,7 @@ class MapControllerImpl {
       .addTo(this.map);
   }
 
-  private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>, includeAction: boolean): string {
+  private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>): string {
     const stationName = this.escapeHtml(properties.name || "Water refill station");
     const stationTypeRaw = (properties.type || "unknown").replace(/_/g, " ");
     const stationType = this.escapeHtml(stationTypeRaw.replace(/\b\w/g, (char) => char.toUpperCase()));
@@ -369,10 +355,6 @@ class MapControllerImpl {
     );
     const location = this.escapeHtml(locationParts.join(", ") || "Location unknown");
     const freshness = this.escapeHtml(this.getFreshnessLabel(properties.last_confirmed_days));
-    const stationId = typeof properties.id === "string" ? this.escapeHtml(properties.id) : "";
-    const actionHtml = includeAction && stationId
-      ? `<button type="button" class="station-preview__action" data-station-preview-open="${stationId}">View details</button>`
-      : "";
 
     return `
       <article class="station-preview">
@@ -384,7 +366,6 @@ class MapControllerImpl {
         </div>
         <p>${freshness}</p>
         <p>${location}</p>
-        ${actionHtml}
       </article>
     `;
   }
