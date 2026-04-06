@@ -109,11 +109,10 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(92vw, 36rem);
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 0.45rem var(--space-3);
+  padding: 0.45rem var(--space-4);
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent 16%);
   background: color-mix(in srgb, var(--color-surface-elevated) 92%, transparent 8%);
@@ -129,27 +128,7 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--color-text);
-}
-
-.map-state-bar__count {
-  justify-self: end;
-  padding: 0.12rem 0.5rem;
-  border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--color-border) 88%, transparent 12%);
-  background: color-mix(in srgb, var(--color-badge) 90%, transparent 10%);
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.map-state-bar__filters {
-  justify-self: end;
-  padding: 0.12rem 0.5rem;
-  border-radius: var(--radius-full);
-  border: 1px solid color-mix(in srgb, var(--color-primary) 55%, var(--color-border) 45%);
-  background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-elevated) 86%);
-  font-weight: 700;
-  color: var(--color-text);
-  white-space: nowrap;
+  line-height: 1.25;
 }
 
 .map-state-bar.is-fresh {
@@ -945,15 +924,11 @@
     margin: var(--space-3) var(--space-4) 0;
     width: auto;
     transform: none;
-    padding: var(--space-2) var(--space-3);
+    padding: var(--space-2) var(--space-4);
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent 20%);
     background: color-mix(in srgb, var(--color-surface-elevated) 94%, transparent 6%);
     box-shadow: var(--shadow-sm);
-  }
-
-  .map-state-bar__filters {
-    justify-self: end;
   }
 
   .app-shell[data-search-active="true"] .search-bar {

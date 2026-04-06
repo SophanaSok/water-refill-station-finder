@@ -218,7 +218,7 @@ function showUserSearchStatus(message: string) {
   const stateText = document.querySelector<HTMLElement>("#map-state-text");
   if (!stateBar || !stateText) return;
 
-  stateText.textContent = `Showing: ${message}`;
+  stateText.textContent = message;
   stateBar.classList.remove("is-fresh");
   // Restart highlight animation each time search is applied.
   window.requestAnimationFrame(() => {
@@ -248,21 +248,26 @@ function updateFilterToggleSummary() {
 }
 
 function updateMapStateFilterSummary() {
-  const badge = document.querySelector<HTMLElement>("#map-state-filters");
-  if (!badge) return;
+  const stateText = document.querySelector<HTMLElement>("#map-state-text");
+  if (!stateText) return;
 
   const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
     .filter((button) => button.getAttribute("data-filter") !== "all")
     .length;
 
-  badge.textContent = activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "All filters";
+  const filterSummary = activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "All filters";
+  const baseText = stateText.textContent?.split(" • ")[0] ?? "Showing nearby stations";
+  const count = document.querySelector<HTMLElement>("#map-state-count")?.textContent ?? "0 results";
+  stateText.textContent = `${baseText} • ${filterSummary} • ${count}`;
 }
 
 function updateMapStateCount(count: number) {
-  const countBadge = document.querySelector<HTMLElement>("#map-state-count");
-  if (!countBadge) return;
+  const stateText = document.querySelector<HTMLElement>("#map-state-text");
+  if (!stateText) return;
 
-  countBadge.textContent = `${count} result${count === 1 ? "" : "s"}`;
+  const current = stateText.textContent ?? "Showing nearby stations • All filters • 0 results";
+  const [baseText, filterSummary = "All filters"] = current.split(" • ");
+  stateText.textContent = `${baseText} • ${filterSummary} • ${count} result${count === 1 ? "" : "s"}`;
 }
 
 async function openAddStationOverlay() {
@@ -345,9 +350,7 @@ function renderAppShell() {
       </form>
 
       <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
-        <span id="map-state-text" class="map-state-bar__text">Showing: nearby stations</span>
-        <span id="map-state-filters" class="map-state-bar__filters">All filters</span>
-        <span id="map-state-count" class="map-state-bar__count">0 results</span>
+        <span id="map-state-text" class="map-state-bar__text">Showing nearby stations • All filters • 0 results</span>
       </div>
 
       <div class="filter-pills" data-collapsed="true">
