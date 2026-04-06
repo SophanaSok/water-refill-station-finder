@@ -236,15 +236,16 @@ function showUserSearchStatus(message: string) {
 
 function updateFilterToggleSummary() {
   const toggle = document.querySelector<HTMLButtonElement>(".filter-pills__toggle");
-  const countBadge = document.querySelector<HTMLElement>("#filter-toggle-count");
-  if (!toggle || !countBadge) return;
+  const label = document.querySelector<HTMLElement>("#filter-toggle-label");
+  if (!toggle || !label) return;
 
   const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
     .filter((button) => button.getAttribute("data-filter") !== "all")
     .length;
 
-  countBadge.textContent = activeCount > 0 ? `${activeCount} active` : "All stations";
-  toggle.setAttribute("aria-label", activeCount > 0 ? `Filters and legend, ${activeCount} active` : "Filters and legend");
+  const summary = activeCount > 0 ? `Filters and legend • ${activeCount} active` : "Filters and legend • All stations";
+  label.textContent = summary;
+  toggle.setAttribute("aria-label", summary);
 }
 
 function updateMapStateFilterSummary() {
@@ -356,8 +357,7 @@ function renderAppShell() {
       <div class="filter-pills" data-collapsed="true">
         <button class="filter-pills__toggle" type="button" aria-expanded="false">
           <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
-          <span class="filter-pills__toggle-label">Filters and legend</span>
-          <span id="filter-toggle-count" class="filter-pills__toggle-count">All stations</span>
+          <span id="filter-toggle-label" class="filter-pills__toggle-label">Filters and legend • All stations</span>
           <span class="filter-pills__toggle-icon" aria-hidden="true">▾</span>
         </button>
         <div class="filter-pills__body">
