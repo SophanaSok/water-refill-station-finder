@@ -1025,7 +1025,7 @@ class BottomSheetSnap {
   }
 
   private isDesktopViewport(): boolean {
-    return window.matchMedia("(min-width: 768px)").matches;
+    return window.matchMedia("(min-width: 1024px)").matches;
   }
 
   private normalizeState(state: "peek" | "half" | "full"): "peek" | "half" | "full" {
