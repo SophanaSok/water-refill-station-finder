@@ -338,36 +338,42 @@ function renderAppShell() {
         <span id="map-state-count" class="map-state-bar__count">0 results</span>
       </div>
 
-      <div class="filter-pills" role="toolbar" aria-label="Filters">
-        <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
-        <div class="filter-pills__row" role="group" aria-label="Filter stations">
-          <button class="filter-pill active-pill" data-filter="all" aria-pressed="true">
-            All
-          </button>
-          <button class="filter-pill" data-filter="is_free" aria-pressed="false">
-            Free
-          </button>
-          <button class="filter-pill" data-filter="fountain" aria-pressed="false">
-            Fountain
-          </button>
-          <button class="filter-pill" data-filter="bottle_filler" aria-pressed="false">
-            Bottle Filler
-          </button>
-          <button class="filter-pill" data-filter="store_refill" aria-pressed="false">
-            Store Refill
-          </button>
-        </div>
-        <div id="map-legend" class="map-legend" data-collapsed="true">
-          <button class="map-legend__toggle" type="button" aria-expanded="false">
-            <span>Map legend</span>
-            <span aria-hidden="true">▾</span>
-          </button>
-          <div class="map-legend__body">
-            <div class="map-legend__item"><span class="map-legend__icon">${getStationTypeIconMarkup("fountain")}</span><span>Fountain</span></div>
-            <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--bottle">${getStationTypeIconMarkup("bottle_filler")}</span><span>Bottle filler</span></div>
-            <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--store">${getStationTypeIconMarkup("store_refill")}</span><span>Store refill</span></div>
-            <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--tap">${getStationTypeIconMarkup("tap")}</span><span>Tap</span></div>
-            <div class="map-legend__item"><span class="map-legend__ring"></span><span>Amber ring = unconfirmed 6+ months</span></div>
+      <div class="filter-pills" data-collapsed="true">
+        <button class="filter-pills__toggle" type="button" aria-expanded="false">
+          <span class="sidebar-kicker" aria-hidden="true">Refine results</span>
+          <span class="filter-pills__toggle-label">Filters and legend</span>
+          <span class="filter-pills__toggle-icon" aria-hidden="true">▾</span>
+        </button>
+        <div class="filter-pills__body">
+          <div class="filter-pills__row" role="group" aria-label="Filter stations">
+            <button class="filter-pill active-pill" data-filter="all" aria-pressed="true">
+              All
+            </button>
+            <button class="filter-pill" data-filter="is_free" aria-pressed="false">
+              Free
+            </button>
+            <button class="filter-pill" data-filter="fountain" aria-pressed="false">
+              Fountain
+            </button>
+            <button class="filter-pill" data-filter="bottle_filler" aria-pressed="false">
+              Bottle Filler
+            </button>
+            <button class="filter-pill" data-filter="store_refill" aria-pressed="false">
+              Store Refill
+            </button>
+          </div>
+          <div id="map-legend" class="map-legend" data-collapsed="true">
+            <button class="map-legend__toggle" type="button" aria-expanded="false">
+              <span>Map legend</span>
+              <span aria-hidden="true">▾</span>
+            </button>
+            <div class="map-legend__body">
+              <div class="map-legend__item"><span class="map-legend__icon">${getStationTypeIconMarkup("fountain")}</span><span>Fountain</span></div>
+              <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--bottle">${getStationTypeIconMarkup("bottle_filler")}</span><span>Bottle filler</span></div>
+              <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--store">${getStationTypeIconMarkup("store_refill")}</span><span>Store refill</span></div>
+              <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--tap">${getStationTypeIconMarkup("tap")}</span><span>Tap</span></div>
+              <div class="map-legend__item"><span class="map-legend__ring"></span><span>Amber ring = unconfirmed 6+ months</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -497,6 +503,21 @@ function initLegendToggle() {
   toggle?.addEventListener("click", () => {
     const collapsed = legend.getAttribute("data-collapsed") === "true";
     legend.setAttribute("data-collapsed", String(!collapsed));
+    toggle.setAttribute("aria-expanded", String(collapsed));
+  });
+}
+
+function initFilterToggle() {
+  const filters = document.querySelector<HTMLElement>(".filter-pills");
+  if (!filters) return;
+
+  const toggle = filters.querySelector<HTMLButtonElement>(".filter-pills__toggle");
+  const body = filters.querySelector<HTMLElement>(".filter-pills__body");
+  if (!toggle || !body) return;
+
+  toggle.addEventListener("click", () => {
+    const collapsed = filters.getAttribute("data-collapsed") === "true";
+    filters.setAttribute("data-collapsed", String(!collapsed));
     toggle.setAttribute("aria-expanded", String(collapsed));
   });
 }
@@ -1203,6 +1224,7 @@ async function main() {
   renderAppShell();
   trackTiming("perf_shell_ready", "boot_to_shell_ready");
   initLegendToggle();
+  initFilterToggle();
   initConnectivityBanner();
   registerServiceWorker();
 
