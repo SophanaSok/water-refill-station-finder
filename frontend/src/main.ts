@@ -243,9 +243,9 @@ function updateFilterToggleSummary() {
     .filter((button) => button.getAttribute("data-filter") !== "all")
     .length;
 
-  const summary = activeCount > 0 ? `Filters and legend • ${activeCount} active` : "Filters and legend • All stations";
+  const summary = activeCount > 0 ? `Filters • ${activeCount} active` : "Filters • All stations";
   label.textContent = summary;
-  toggle.setAttribute("aria-label", summary);
+  toggle.setAttribute("aria-label", `${summary}. Includes legend.`);
 }
 
 function updateMapStateFilterSummary() {

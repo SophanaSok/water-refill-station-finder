@@ -1115,6 +1115,14 @@
     font-size: var(--text-xs);
   }
 
+  .filter-pills__toggle-label {
+    line-height: 1.15;
+  }
+
+  .filter-pills__toggle-icon {
+    justify-self: end;
+  }
+
   .filter-pills__body {
     gap: var(--space-2);
   }
