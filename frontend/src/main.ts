@@ -21,10 +21,26 @@ let profileModulePromise: Promise<typeof import("./profile")> | null = null;
 let hasTrackedFirstStationsLoad = false;
 let mapStateFreshTimer: ReturnType<typeof setTimeout> | null = null;
 let lastNearbyStationsGeoJSON: NearbyStationsGeoJSON | null = null;
-let bestNearbyFreeOnly = false;
+let bestNearbyFreeOnly = getStoredBestNearbyFreeOnly();
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
+
+function getStoredBestNearbyFreeOnly(): boolean {
+  try {
+    return localStorage.getItem("bestNearbyFreeOnly") === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setStoredBestNearbyFreeOnly(value: boolean) {
+  try {
+    localStorage.setItem("bestNearbyFreeOnly", value ? "true" : "false");
+  } catch {
+    // Ignore storage write failures.
+  }
+}
 
 function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
   const firstFeature = geojson.features[0];
@@ -442,6 +458,7 @@ function initBestNearbyQuickPickActions() {
 
   freeOnlyToggle.addEventListener("click", () => {
     bestNearbyFreeOnly = !bestNearbyFreeOnly;
+    setStoredBestNearbyFreeOnly(bestNearbyFreeOnly);
     if (lastNearbyStationsGeoJSON) {
       renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
     }
@@ -453,6 +470,7 @@ function initBestNearbyQuickPickActions() {
     const resetFreeButton = target.closest<HTMLButtonElement>("[data-best-nearby-reset-free]");
     if (resetFreeButton) {
       bestNearbyFreeOnly = false;
+      setStoredBestNearbyFreeOnly(false);
       if (lastNearbyStationsGeoJSON) {
         renderBestNearbyQuickPicks(lastNearbyStationsGeoJSON);
       }
