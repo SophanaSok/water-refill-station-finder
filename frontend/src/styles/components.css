@@ -1730,3 +1730,9 @@
     padding: var(--space-2);
   }
 }
+
+@media (max-width: 768px) {
+  .app-shell[data-search-active="true"] .best-nearby {
+    display: none !important;
+  }
+}
