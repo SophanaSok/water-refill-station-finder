@@ -8,7 +8,10 @@ type GeocodeQuery = {
 };
 
 type MapboxFeature = {
+  id?: unknown;
+  text?: unknown;
   place_name?: unknown;
+  place_type?: unknown;
   center?: unknown;
   bbox?: unknown;
 };
@@ -67,7 +70,7 @@ const geocodeUnavailableSchema = {
 } as const;
 
 function toCacheKey(rawQuery: string): string {
-  return `geocode:${rawQuery.toLowerCase().trim()}`;
+  return `geocode:v2:${rawQuery.toLowerCase().trim()}`;
 }
 
 function isLngLatPair(value: unknown): value is [number, number] {
@@ -106,6 +109,39 @@ function simplifyFeatures(features: MapboxFeature[]): SimplifiedGeocodeResult[] 
 
       return result;
     });
+}
+
+function isZipLikeQuery(query: string): boolean {
+  return /^\d{5}(?:-\d{4})?$/.test(query);
+}
+
+function rankFeatures(features: MapboxFeature[], query: string): MapboxFeature[] {
+  if (!isZipLikeQuery(query)) {
+    return features;
+  }
+
+  const normalizedQuery = query.trim();
+
+  return [...features].sort((a, b) => {
+    const aTypes = Array.isArray(a.place_type) ? a.place_type.filter((t) => typeof t === "string") : [];
+    const bTypes = Array.isArray(b.place_type) ? b.place_type.filter((t) => typeof t === "string") : [];
+
+    const aIsPostcode = aTypes.includes("postcode");
+    const bIsPostcode = bTypes.includes("postcode");
+    if (aIsPostcode !== bIsPostcode) {
+      return aIsPostcode ? -1 : 1;
+    }
+
+    const aText = typeof a.text === "string" ? a.text : "";
+    const bText = typeof b.text === "string" ? b.text : "";
+    const aExact = aText === normalizedQuery;
+    const bExact = bText === normalizedQuery;
+    if (aExact !== bExact) {
+      return aExact ? -1 : 1;
+    }
+
+    return 0;
+  });
 }
 
 const geocodeRoutes: FastifyPluginAsync = async (server) => {
@@ -148,7 +184,7 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
         `?access_token=${encodeURIComponent(env.MAPBOX_SECRET_TOKEN)}` +
         "&bbox=-171.79,18.91,-66.96,71.38" +
         "&country=us" +
-        "&types=place,address,neighborhood,locality" +
+        "&types=postcode,address,place,neighborhood,locality" +
         "&limit=5";
 
       let response: Response;
@@ -163,7 +199,8 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
       }
 
       const payload = (await response.json()) as MapboxResponse;
-      const simplified = simplifyFeatures(payload.features ?? []);
+      const rankedFeatures = rankFeatures(payload.features ?? [], normalizedQuery);
+      const simplified = simplifyFeatures(rankedFeatures);
 
       await setCached(cacheKey, simplified, 3600);
       return simplified;
