@@ -84,6 +84,10 @@
 }
 
 .search-result-item {
+  &.is-active {
+    background: color-mix(in srgb, var(--color-primary) 14%, transparent 86%) !important;
+  }
+
   &:hover {
     background: color-mix(in srgb, var(--color-primary) 8%, transparent 92%) !important;
   }
@@ -91,6 +95,12 @@
   &:active {
     background: color-mix(in srgb, var(--color-primary) 15%, transparent 85%) !important;
   }
+}
+
+.search-dropdown__hint {
+  padding: var(--space-3) var(--space-4);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 
 .filter-pills {

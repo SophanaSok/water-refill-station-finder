@@ -565,6 +565,7 @@ class SearchBarController {
   private map;
   private latestResults: Array<{ place_name: string; center: [number, number] }> = [];
   private latestResultsQuery = "";
+  private highlightedIndex = -1;
   private activeGeocodeController: AbortController | null = null;
   private geocodeRequestId = 0;
   private geocodeCache = new Map<string, Array<{ place_name: string; center: [number, number] }>>();
@@ -589,17 +590,21 @@ class SearchBarController {
       if (normalizedQuery.length < 2) {
         this.latestResults = [];
         this.latestResultsQuery = "";
+        this.highlightedIndex = -1;
         this.activeGeocodeController?.abort();
-        this.dropdown.style.display = "none";
+        this.closeDropdown();
         return;
       }
 
       const cachedResults = this.geocodeCache.get(normalizedQuery);
       if (cachedResults) {
         this.renderResults(cachedResults, normalizedQuery);
-        this.dropdown.style.display = "block";
+        this.openDropdown();
         return;
       }
+
+      this.resultsList.innerHTML = `<li class="search-dropdown__hint">Searching for \"${normalizedQuery}\"...</li>`;
+      this.openDropdown();
 
       this.activeGeocodeController?.abort();
       const controller = new AbortController();
@@ -622,7 +627,7 @@ class SearchBarController {
         }
 
         this.renderResults(results, normalizedQuery);
-        this.dropdown.style.display = "block";
+        this.openDropdown();
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") {
           return;
@@ -630,8 +635,11 @@ class SearchBarController {
 
         this.latestResults = [];
         this.latestResultsQuery = "";
+        this.highlightedIndex = -1;
         console.error("Geocode search failed:", error);
-        this.dropdown.style.display = "none";
+        this.resultsList.innerHTML =
+          "<li class=\"search-dropdown__hint\">Could not load search results. Try again.</li>";
+        this.openDropdown();
       }
     }, 300);
 
@@ -645,6 +653,7 @@ class SearchBarController {
     const limitedResults = results.slice(0, 6);
     this.latestResults = limitedResults;
     this.latestResultsQuery = query;
+    this.highlightedIndex = limitedResults.length > 0 ? 0 : -1;
 
     if (limitedResults.length === 0) {
       this.resultsList.innerHTML = `<li>${renderSearchNoResultsEmptyState(this.input.value)}</li>`;
@@ -657,10 +666,12 @@ class SearchBarController {
       <li>
         <button 
           type="button"
-          class="search-result-item" 
+          class="search-result-item ${i === this.highlightedIndex ? "is-active" : ""}" 
           data-index="${i}" 
           data-lng="${result.center[0]}" 
           data-lat="${result.center[1]}"
+          role="option"
+          aria-selected="${i === this.highlightedIndex ? "true" : "false"}"
           style="
             padding: var(--space-3);
             background: none;
@@ -687,13 +698,41 @@ class SearchBarController {
       const btn = (e.target as HTMLElement).closest("button");
       if (!btn) return;
 
-      const lng = parseFloat(btn.getAttribute("data-lng") ?? "0");
-      const lat = parseFloat(btn.getAttribute("data-lat") ?? "0");
+      const index = Number.parseInt(btn.getAttribute("data-index") ?? "-1", 10);
+      if (Number.isNaN(index) || index < 0) {
+        return;
+      }
 
-      if (!lng || !lat) return;
-
-      await this.handleSearchSelection(lng, lat);
+      await this.selectResultByIndex(index);
     });
+
+    this.resultsList.addEventListener("mousemove", (e) => {
+      const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("button.search-result-item");
+      if (!btn) return;
+
+      const index = Number.parseInt(btn.getAttribute("data-index") ?? "-1", 10);
+      if (Number.isNaN(index) || index < 0 || index === this.highlightedIndex) {
+        return;
+      }
+
+      this.highlightedIndex = index;
+      this.renderResults(this.latestResults, this.latestResultsQuery);
+      this.openDropdown();
+    });
+  }
+
+  private async selectResultByIndex(index: number) {
+    const selected = this.latestResults[index];
+    if (!selected) {
+      return;
+    }
+
+    const [lng, lat] = selected.center;
+    if (!lng || !lat) {
+      return;
+    }
+
+    await this.handleSearchSelection(lng, lat);
   }
 
   private initSubmitHandler() {
@@ -717,7 +756,7 @@ class SearchBarController {
 
         const firstResult = this.latestResults[0];
         if (!firstResult) {
-          this.dropdown.style.display = "block";
+          this.openDropdown();
           return;
         }
 
@@ -731,30 +770,63 @@ class SearchBarController {
 
   private initEscapeKey() {
     this.input.addEventListener("keydown", (e) => {
+      if (e.key === "ArrowDown" && this.latestResults.length > 0) {
+        e.preventDefault();
+        this.highlightedIndex = (this.highlightedIndex + 1 + this.latestResults.length) % this.latestResults.length;
+        this.renderResults(this.latestResults, this.latestResultsQuery);
+        this.openDropdown();
+        return;
+      }
+
+      if (e.key === "ArrowUp" && this.latestResults.length > 0) {
+        e.preventDefault();
+        this.highlightedIndex =
+          (this.highlightedIndex - 1 + this.latestResults.length) % this.latestResults.length;
+        this.renderResults(this.latestResults, this.latestResultsQuery);
+        this.openDropdown();
+        return;
+      }
+
+      if (e.key === "Enter" && this.latestResults.length > 0 && this.dropdown.style.display === "block") {
+        e.preventDefault();
+        const targetIndex = this.highlightedIndex >= 0 ? this.highlightedIndex : 0;
+        void this.selectResultByIndex(targetIndex);
+        return;
+      }
+
       if (e.key === "Escape") {
         this.activeGeocodeController?.abort();
         this.latestResults = [];
         this.latestResultsQuery = "";
+        this.highlightedIndex = -1;
         if (getElement<HTMLDivElement>(".app-shell").getAttribute("data-search-active") === "true") {
           setSearchOverlayActive(false);
           return;
         }
 
         this.input.value = "";
-        this.dropdown.style.display = "none";
+        this.closeDropdown();
       }
     });
   }
 
   private async handleSearchSelection(lng: number, lat: number) {
-    this.input.value = "";
     this.latestResults = [];
     this.latestResultsQuery = "";
-    this.dropdown.style.display = "none";
+    this.highlightedIndex = -1;
+    this.closeDropdown();
 
     trackPlausible("search_performed");
     this.map.flyTo(lng, lat, 14);
     await this.loadStationsAtLocation(lng, lat);
+  }
+
+  private openDropdown() {
+    this.dropdown.style.display = "block";
+  }
+
+  private closeDropdown() {
+    this.dropdown.style.display = "none";
   }
 
   private async loadStationsAtLocation(lng: number, lat: number) {
