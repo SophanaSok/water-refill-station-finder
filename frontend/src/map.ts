@@ -23,6 +23,7 @@ type Center = { lng: number; lat: number };
 
 class MapControllerImpl {
   private readonly map: Map;
+  private readonly stationPreviewPopup: maplibregl.Popup;
   private stationClickCallback: (stationId: string) => void = () => {};
   private mapMoveCallback: (center: Center) => void = () => {};
   private visibleStationsCallback: (count: number) => void = () => {};
@@ -45,6 +46,12 @@ class MapControllerImpl {
       style: "https://tiles.openfreemap.org/styles/liberty",
       center: [-98.5, 39.5],
       zoom: 4,
+    });
+    this.stationPreviewPopup = new maplibregl.Popup({
+      closeButton: false,
+      closeOnClick: false,
+      offset: 14,
+      className: "station-preview-popup",
     });
 
     this.map.addControl(new maplibregl.NavigationControl(), "top-right");
@@ -289,6 +296,25 @@ class MapControllerImpl {
       }
     });
 
+    this.map.on("mousemove", "unclustered-point", (event) => {
+      const firstFeature = event.features?.[0];
+      const geometry = firstFeature?.geometry;
+      const properties = firstFeature?.properties as Partial<GeoJSONStationProperties> | undefined;
+
+      if (!geometry || geometry.type !== "Point" || !properties) {
+        this.stationPreviewPopup.remove();
+        return;
+      }
+
+      const [lng, lat] = geometry.coordinates;
+      const popupHtml = this.buildStationPreviewHtml(properties);
+
+      this.stationPreviewPopup
+        .setLngLat([lng, lat])
+        .setHTML(popupHtml)
+        .addTo(this.map);
+    });
+
     this.map.on("mouseenter", "clusters", () => {
       this.map.getCanvas().style.cursor = "pointer";
     });
@@ -303,7 +329,45 @@ class MapControllerImpl {
 
     this.map.on("mouseleave", "unclustered-point", () => {
       this.map.getCanvas().style.cursor = "";
+      this.stationPreviewPopup.remove();
     });
+
+    this.map.on("movestart", () => {
+      this.stationPreviewPopup.remove();
+    });
+  }
+
+  private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>): string {
+    const stationName = this.escapeHtml(properties.name || "Water refill station");
+    const stationTypeRaw = (properties.type || "unknown").replace(/_/g, " ");
+    const stationType = this.escapeHtml(stationTypeRaw.replace(/\b\w/g, (char) => char.toUpperCase()));
+    const cost = properties.is_free ? "Free" : "Paid";
+    const verification = properties.is_verified ? "Verified" : "Unverified";
+    const locationParts = [properties.city, properties.state].filter(
+      (part): part is string => typeof part === "string" && part.length > 0,
+    );
+    const location = this.escapeHtml(locationParts.join(", ") || "Location unknown");
+
+    return `
+      <article class="station-preview">
+        <h4>${stationName}</h4>
+        <p>${stationType}</p>
+        <div class="station-preview__meta">
+          <span>${cost}</span>
+          <span>${verification}</span>
+        </div>
+        <p>${location}</p>
+      </article>
+    `;
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/\"/g, "&quot;")
+      .replace(/'/g, "&#39;");
   }
 
   private updateStationSource(data: StationFeatureCollection): void {
