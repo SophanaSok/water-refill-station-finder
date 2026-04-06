@@ -239,15 +239,16 @@ class MapControllerImpl {
           "#7a39bb",
           "#01696f",
         ],
-        "circle-radius": 9,
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 10, 10, 14, 12, 18, 14],
         "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": 2,
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2.25, 12, 2.5, 18, 3],
         "circle-opacity": [
           "case",
           [">=", ["coalesce", ["get", "last_confirmed_days"], 9999], 180],
-            0.6,
-          1,
+          0.8,
+          0.98,
         ],
+        "circle-blur": 0.02,
       },
     });
 
