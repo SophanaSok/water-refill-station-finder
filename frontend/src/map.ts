@@ -292,27 +292,17 @@ class MapControllerImpl {
       const stationId = firstFeature?.properties?.id;
 
       if (typeof stationId === "string") {
+        if (this.isCoarsePointerDevice()) {
+          this.showStationPreview(firstFeature, true);
+          return;
+        }
         this.stationClickCallback(stationId);
       }
     });
 
     this.map.on("mousemove", "unclustered-point", (event) => {
       const firstFeature = event.features?.[0];
-      const geometry = firstFeature?.geometry;
-      const properties = firstFeature?.properties as Partial<GeoJSONStationProperties> | undefined;
-
-      if (!geometry || geometry.type !== "Point" || !properties) {
-        this.stationPreviewPopup.remove();
-        return;
-      }
-
-      const [lng, lat] = geometry.coordinates;
-      const popupHtml = this.buildStationPreviewHtml(properties);
-
-      this.stationPreviewPopup
-        .setLngLat([lng, lat])
-        .setHTML(popupHtml)
-        .addTo(this.map);
+      this.showStationPreview(firstFeature, false);
     });
 
     this.map.on("mouseenter", "clusters", () => {
@@ -335,9 +325,47 @@ class MapControllerImpl {
     this.map.on("movestart", () => {
       this.stationPreviewPopup.remove();
     });
+
+    this.map.getContainer().addEventListener("click", (event) => {
+      const target = event.target as HTMLElement | null;
+      const button = target?.closest<HTMLButtonElement>("[data-station-preview-open]");
+      if (!button) {
+        return;
+      }
+
+      const stationId = button.getAttribute("data-station-preview-open");
+      if (!stationId) {
+        return;
+      }
+
+      this.stationPreviewPopup.remove();
+      this.stationClickCallback(stationId);
+    });
   }
 
-  private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>): string {
+  private showStationPreview(feature: maplibregl.MapGeoJSONFeature | undefined, includeAction: boolean): void {
+    const geometry = feature?.geometry;
+    const properties = feature?.properties as Partial<GeoJSONStationProperties> | undefined;
+
+    if (!geometry || geometry.type !== "Point" || !properties) {
+      this.stationPreviewPopup.remove();
+      return;
+    }
+
+    const [lng, lat] = geometry.coordinates;
+    const popupHtml = this.buildStationPreviewHtml(properties, includeAction);
+
+    this.stationPreviewPopup
+      .setLngLat([lng, lat])
+      .setHTML(popupHtml)
+      .addTo(this.map);
+  }
+
+  private isCoarsePointerDevice(): boolean {
+    return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  }
+
+  private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>, includeAction: boolean): string {
     const stationName = this.escapeHtml(properties.name || "Water refill station");
     const stationTypeRaw = (properties.type || "unknown").replace(/_/g, " ");
     const stationType = this.escapeHtml(stationTypeRaw.replace(/\b\w/g, (char) => char.toUpperCase()));
@@ -347,6 +375,11 @@ class MapControllerImpl {
       (part): part is string => typeof part === "string" && part.length > 0,
     );
     const location = this.escapeHtml(locationParts.join(", ") || "Location unknown");
+    const freshness = this.escapeHtml(this.getFreshnessLabel(properties.last_confirmed_days));
+    const stationId = typeof properties.id === "string" ? this.escapeHtml(properties.id) : "";
+    const actionHtml = includeAction && stationId
+      ? `<button type="button" class="station-preview__action" data-station-preview-open="${stationId}">View details</button>`
+      : "";
 
     return `
       <article class="station-preview">
@@ -356,9 +389,30 @@ class MapControllerImpl {
           <span>${cost}</span>
           <span>${verification}</span>
         </div>
+        <p>${freshness}</p>
         <p>${location}</p>
+        ${actionHtml}
       </article>
     `;
+  }
+
+  private getFreshnessLabel(lastConfirmedDays: number | undefined): string {
+    const days = typeof lastConfirmedDays === "number" ? lastConfirmedDays : 9999;
+
+    if (days < 1) {
+      return "Confirmed today";
+    }
+
+    if (days < 7) {
+      return `Confirmed ${days} day${days === 1 ? "" : "s"} ago`;
+    }
+
+    if (days < 180) {
+      const months = Math.max(1, Math.floor(days / 30));
+      return `Confirmed ${months} month${months === 1 ? "" : "s"} ago`;
+    }
+
+    return "Not confirmed recently";
   }
 
   private escapeHtml(value: string): string {
