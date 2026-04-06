@@ -900,26 +900,7 @@
     grid-template-rows: auto auto auto auto minmax(0, 1fr);
     column-gap: var(--space-3);
     padding-inline: var(--space-2);
-  }
-
-  .search-bar,
-  .map-state-bar,
-  .filter-pills,
-  .bottom-sheet {
-    backdrop-filter: blur(10px);
-    position: relative;
-  }
-
-  .search-bar::after,
-  .map-state-bar::after,
-  .filter-pills::after,
-  .bottom-sheet::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    pointer-events: none;
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.42);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--color-bg) 96%, white 4%) 0%, var(--color-bg) 100%);
   }
 
   .search-bar,
@@ -938,27 +919,19 @@
     grid-row: 1;
     width: auto;
     margin: var(--space-5) var(--space-4) 0;
-    padding: var(--space-6) var(--space-4) var(--space-3);
+    padding: var(--space-3) var(--space-4);
     border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
-    background: color-mix(in srgb, var(--color-surface-elevated) 96%, var(--color-bg) 4%);
-    box-shadow: 0 8px 20px rgb(88 74 57 / 0.1);
-
-    & .sidebar-kicker {
-      display: inline-flex;
-      position: absolute;
-      top: var(--space-2);
-      left: var(--space-4);
-      font-size: 0.68rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      font-weight: 800;
-      color: var(--color-text-muted);
-    }
+    border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
+    background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
+    box-shadow: 0 6px 16px rgb(0 0 0 / 0.08);
 
     & input {
       font-size: var(--text-sm);
     }
+  }
+
+  .search-bar .sidebar-kicker {
+    display: none;
   }
 
   .map-state-bar {
@@ -967,14 +940,14 @@
     margin: var(--space-3) var(--space-4) 0;
     width: auto;
     transform: none;
-    padding: var(--space-2) var(--space-3);
+    padding: 0.42rem 0.65rem;
     border-radius: var(--radius-lg);
-    border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
-    background: color-mix(in srgb, var(--color-surface-elevated) 95%, var(--color-bg) 5%);
-    box-shadow: 0 6px 16px rgb(88 74 57 / 0.08);
+    border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border) 70%);
+    background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-elevated) 92%);
+    box-shadow: none;
 
     & .map-state-bar__text {
-      font-size: 0.77rem;
+      font-size: 0.75rem;
       letter-spacing: 0.01em;
     }
   }
@@ -989,10 +962,10 @@
     grid-row: 3;
     margin: var(--space-3) var(--space-4) 0;
     padding: 0;
-    border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
+    border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
     border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-surface-elevated) 96%, var(--color-bg) 4%);
-    box-shadow: 0 8px 18px rgb(88 74 57 / 0.09);
+    background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
+    box-shadow: 0 6px 14px rgb(0 0 0 / 0.06);
     overflow: visible;
   }
 
@@ -1000,8 +973,8 @@
     border: none;
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     box-shadow: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 60%, transparent 40%);
-    background: color-mix(in srgb, var(--color-surface-elevated) 98%, var(--color-bg) 2%);
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 54%, transparent 46%);
+    background: transparent;
     padding-block: var(--space-3);
 
     & .filter-pills__toggle-label {
@@ -1028,9 +1001,9 @@
   .map-legend {
     margin: 0;
     z-index: auto;
-    border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
-    background: color-mix(in srgb, var(--color-surface-elevated) 97%, var(--color-bg) 3%);
-    box-shadow: 0 6px 14px rgb(88 74 57 / 0.08);
+    border: 1px solid color-mix(in srgb, var(--color-border) 54%, transparent 46%);
+    background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
+    box-shadow: none;
   }
 
   .map-legend__body {
@@ -1045,14 +1018,14 @@
     max-height: 100%;
     min-height: 0;
     margin: var(--space-3) var(--space-4) var(--space-4);
-    border: 1px solid color-mix(in srgb, var(--color-border) 68%, transparent 32%);
+    border: 1px solid color-mix(in srgb, var(--color-border) 56%, transparent 44%);
     border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-surface-elevated) 96%, var(--color-bg) 4%);
-    box-shadow: 0 12px 28px rgb(88 74 57 / 0.11);
+    background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
+    box-shadow: 0 8px 18px rgb(0 0 0 / 0.07);
     overflow-y: auto;
 
     & .sidebar-kicker--sheet {
-      display: inline-flex;
+      display: none;
       position: sticky;
       top: 0;
       z-index: 2;
@@ -1062,8 +1035,8 @@
       text-transform: uppercase;
       font-weight: 800;
       color: var(--color-text-muted);
-      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 62%, transparent 38%);
-      background: color-mix(in srgb, var(--color-surface-elevated) 99%, var(--color-bg) 1%);
+      border-bottom: 1px solid color-mix(in srgb, var(--color-border) 52%, transparent 48%);
+      background: color-mix(in srgb, var(--color-surface-elevated) 100%, var(--color-bg) 0%);
     }
 
     & .handle {
@@ -1164,17 +1137,6 @@
   }
 
   .map-legend {
-
-@media (prefers-color-scheme: dark) {
-  @media (min-width: 768px) {
-    .search-bar::after,
-    .map-state-bar::after,
-    .filter-pills::after,
-    .bottom-sheet::after {
-      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.08);
-    }
-  }
-}
     border-radius: var(--radius-md);
   }
 
