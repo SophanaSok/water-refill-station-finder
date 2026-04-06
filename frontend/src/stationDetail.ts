@@ -154,9 +154,8 @@ function buildStationDetailHTML(station: StationDetail): string {
   const freshnessHtml = getFreshnessHTML(station);
   const typeLabel = stationType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const costBadge = station.is_free ? "Free" : "Paid";
-  const verifiedBadge = station.is_verified ? `<span class="badge">✓ Verified</span>` : "";
-  const distanceBadge = distance ? `<span class="badge">${distance}</span>` : "";
-  const typeBadge = `<span class="badge badge--type"><span class="badge-icon">${getStationTypeIconMarkup(stationType)}</span>${escapeHtml(typeLabel)}</span>`;
+  const verificationText = station.is_verified ? "Verified" : "Unverified";
+  const headerSummary = [typeLabel, costBadge, verificationText, cityStateLabel, distance ?? null].filter(Boolean).join(" • ");
 
   return `
     <article id="station-detail" class="station-detail">
@@ -170,19 +169,9 @@ function buildStationDetailHTML(station: StationDetail): string {
       </div>
 
       <!-- Header -->
-      <div style="display: grid; gap: var(--space-2);">
-        <div style="display: flex; align-items: start; gap: var(--space-2); justify-content: space-between;">
-          <h2 style="font-size: var(--text-lg); margin: 0; flex: 1;">${escapeHtml(stationName)}</h2>
-          ${verifiedBadge}
-        </div>
-      </div>
-
-      <!-- Meta Info -->
-      <div style="display: flex; flex-wrap: wrap; gap: var(--space-2); font-size: var(--text-sm);">
-        ${typeBadge}
-        <span class="badge">${costBadge}</span>
-        ${distanceBadge}
-        <span class="badge">${escapeHtml(cityStateLabel)}</span>
+      <div class="station-detail__header">
+        <h2 style="font-size: var(--text-lg); margin: 0;">${escapeHtml(stationName)}</h2>
+        <p class="station-detail__summary">${escapeHtml(headerSummary)}</p>
       </div>
 
       <!-- Address -->
@@ -193,56 +182,64 @@ function buildStationDetailHTML(station: StationDetail): string {
       <!-- Freshness Indicator -->
       ${freshnessHtml}
 
-      <!-- Confirmation Bar -->
-      <div class="confirmation-bar" style="margin-top: var(--space-2);">
-        <button 
-          id="confirm-working"
-          class="btn-primary" 
-          data-station-id="${station.id}"
-          data-confirm="true"
-          ${hasConfirmedThisSession ? 'disabled' : ''}
-        >
-          👍 <span id="working-count">${station.working_count}</span>
-        </button>
-        <button 
-          id="confirm-not-working"
-          class="btn-secondary" 
-          data-station-id="${station.id}"
-          data-confirm="false"
-          ${hasConfirmedThisSession ? 'disabled' : ''}
-        >
-          👎 <span id="not-working-count">${station.not_working_count}</span>
-        </button>
+      <div class="station-detail__group">
+        <div class="station-detail__group-header">
+          <strong>Working status</strong>
+          <span class="station-detail__group-copy">Tap the result that matches what you saw.</span>
+        </div>
+        <div class="confirmation-bar station-detail__group-body" style="margin-top: 0;">
+          <button 
+            id="confirm-working"
+            class="btn-primary" 
+            data-station-id="${station.id}"
+            data-confirm="true"
+            ${hasConfirmedThisSession ? 'disabled' : ''}
+          >
+            👍 <span id="working-count">${station.working_count}</span>
+          </button>
+          <button 
+            id="confirm-not-working"
+            class="btn-secondary" 
+            data-station-id="${station.id}"
+            data-confirm="false"
+            ${hasConfirmedThisSession ? 'disabled' : ''}
+          >
+            👎 <span id="not-working-count">${station.not_working_count}</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Action Row -->
-      <div class="station-detail__action-row" style="margin-top: var(--space-2);">
-        <button 
-          id="save-station-btn" 
-          class="btn-secondary" 
-          data-station-id="${station.id}"
-        >
-          <span id="save-icon">${starIcon}</span>
-          ${isSaved ? "Saved" : "Save"}
-        </button>
-        <button 
-          id="directions-btn" 
-          class="btn-secondary" 
-          data-lat="${station.latitude}"
-          data-lng="${station.longitude}"
-        >
-          🗺 Directions
-        </button>
-      </div>
-
-      <!-- Secondary Actions -->
-      <div class="station-detail__secondary-actions">
-        <button id="add-photo-btn" class="btn-ghost" style="color: var(--color-text-muted);">
-          📷 Photo
-        </button>
-        <button id="report-issue-btn" class="btn-ghost" style="color: var(--color-text-muted);">
-          🚩 Report
-        </button>
+      <div class="station-detail__group">
+        <div class="station-detail__group-header">
+          <strong>Quick actions</strong>
+          <span class="station-detail__group-copy">Save, get directions, or help improve the listing.</span>
+        </div>
+        <div class="station-detail__action-row station-detail__group-body" style="margin-top: 0;">
+          <button 
+            id="save-station-btn" 
+            class="btn-secondary" 
+            data-station-id="${station.id}"
+          >
+            <span id="save-icon">${starIcon}</span>
+            ${isSaved ? "Saved" : "Save"}
+          </button>
+          <button 
+            id="directions-btn" 
+            class="btn-secondary" 
+            data-lat="${station.latitude}"
+            data-lng="${station.longitude}"
+          >
+            🗺 Directions
+          </button>
+        </div>
+        <div class="station-detail__secondary-actions station-detail__group-body station-detail__group-body--secondary">
+          <button id="add-photo-btn" class="btn-ghost" style="color: var(--color-text-muted);">
+            📷 Photo
+          </button>
+          <button id="report-issue-btn" class="btn-ghost" style="color: var(--color-text-muted);">
+            🚩 Report
+          </button>
+        </div>
       </div>
 
       <!-- Flag Form (hidden by default) -->
