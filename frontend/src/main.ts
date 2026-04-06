@@ -2,7 +2,7 @@ import type { MapController } from "./map";
 import { fetchStations, geocodeSearch, fetchStationById } from "./api";
 import { openStationDetail, updateUserLocation, loadSavedStations } from "./stationDetail";
 import { initializeAuth } from "./auth";
-import { startTiming, trackPlausible, trackTiming } from "./analytics";
+import { initAnalytics, startTiming, trackPlausible, trackTiming } from "./analytics";
 import { renderNoStationsEmptyState, renderSearchNoResultsEmptyState } from "./emptyStates";
 import { getStationTypeIcon as getStationTypeIconMarkup } from "./icons";
 import { showStationDetailLoading } from "./stationDetail";
@@ -966,6 +966,7 @@ function requestGeolocation(map: MapController) {
 // ============================================================================
 
 async function main() {
+  initAnalytics();
   startTiming("boot_to_shell_ready");
 
   // Render app shell
