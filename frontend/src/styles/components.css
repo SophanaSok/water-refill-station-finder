@@ -150,8 +150,8 @@
   top: calc(var(--space-4) + 4.2rem);
   left: 0;
   width: 100%;
-  display: flex;
-  gap: var(--space-2);
+  display: grid;
+  gap: var(--space-3);
   padding-inline: var(--space-4);
   overflow-x: auto;
   z-index: 45;
@@ -162,6 +162,17 @@
   }
 
   & .sidebar-kicker {
+    display: none;
+  }
+}
+
+.filter-pills__row {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
     display: none;
   }
 }
@@ -291,11 +302,7 @@
 }
 
 .map-legend {
-  position: absolute;
-  top: calc(var(--space-4) + 8.6rem);
-  right: var(--space-4);
-  z-index: 47;
-  width: min(72vw, 18rem);
+  width: 100%;
   border-radius: var(--radius-lg);
   border: 1px solid color-mix(in srgb, var(--color-border) 80%, transparent 20%);
   background: color-mix(in srgb, var(--color-surface-elevated) 90%, transparent 10%);
@@ -837,7 +844,6 @@
   .search-bar,
   .map-state-bar,
   .filter-pills,
-  .map-legend,
   .fab-group,
   .bottom-sheet,
   .bottom-nav {
@@ -911,10 +917,7 @@
   }
 
   .map-legend {
-    grid-column: 1;
-    grid-row: 4;
-    margin: var(--space-3) var(--space-4) 0;
-    width: auto;
+    margin: 0;
     z-index: auto;
     background: color-mix(in srgb, var(--color-surface-elevated) 95%, transparent 5%);
     box-shadow: var(--shadow-sm);
@@ -927,7 +930,7 @@
 
   .bottom-sheet {
     grid-column: 1;
-    grid-row: 5;
+    grid-row: 4;
     height: 100%;
     max-height: 100%;
     min-height: 0;
@@ -976,7 +979,7 @@
 
   .map-canvas {
     grid-column: 2;
-    grid-row: 1 / span 5;
+    grid-row: 1 / span 4;
     min-height: 100vh;
   }
 
