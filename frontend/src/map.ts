@@ -292,11 +292,7 @@ class MapControllerImpl {
       const stationId = firstFeature?.properties?.id;
 
       if (typeof stationId === "string") {
-        if (this.isCoarsePointerDevice()) {
-          this.showStationPreview(firstFeature, true);
-          return;
-        }
-        this.stationClickCallback(stationId);
+        this.showStationPreview(firstFeature, true);
       }
     });
 
@@ -359,10 +355,6 @@ class MapControllerImpl {
       .setLngLat([lng, lat])
       .setHTML(popupHtml)
       .addTo(this.map);
-  }
-
-  private isCoarsePointerDevice(): boolean {
-    return typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
   }
 
   private buildStationPreviewHtml(properties: Partial<GeoJSONStationProperties>, includeAction: boolean): string {
