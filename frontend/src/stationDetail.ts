@@ -62,7 +62,8 @@ export function showStationDetailLoading(): void {
  */
 export function closeStationDetail(): void {
   const sheet = getBottomSheet();
-  sheet.setAttribute("data-state", "peek");
+  const isDesktop = window.matchMedia("(min-width: 768px)").matches;
+  sheet.setAttribute("data-state", isDesktop ? "half" : "peek");
   currentStation = null;
 }
 

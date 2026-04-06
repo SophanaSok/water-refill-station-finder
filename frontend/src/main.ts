@@ -992,8 +992,36 @@ class BottomSheetSnap {
 
   constructor() {
     this.sheet = getElement<HTMLDivElement>(".bottom-sheet");
+    this.normalizeStateForViewport();
+    this.initViewportStateSync();
     this.initTouchHandlers();
     this.initDragHandleClick();
+  }
+
+  private isDesktopViewport(): boolean {
+    return window.matchMedia("(min-width: 768px)").matches;
+  }
+
+  private normalizeState(state: "peek" | "half" | "full"): "peek" | "half" | "full" {
+    if (this.isDesktopViewport() && state === "peek") {
+      return "half";
+    }
+
+    return state;
+  }
+
+  private normalizeStateForViewport() {
+    const current = (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "peek";
+    const normalized = this.normalizeState(current);
+    if (normalized !== current) {
+      this.sheet.setAttribute("data-state", normalized);
+    }
+  }
+
+  private initViewportStateSync() {
+    window.addEventListener("resize", () => {
+      this.normalizeStateForViewport();
+    });
   }
 
   private initTouchHandlers() {
@@ -1042,7 +1070,7 @@ class BottomSheetSnap {
   }
 
   snapTo(state: "peek" | "half" | "full") {
-    this.sheet.setAttribute("data-state", state);
+    this.sheet.setAttribute("data-state", this.normalizeState(state));
   }
 }
 
