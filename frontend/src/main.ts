@@ -26,6 +26,7 @@ let bestNearbyHintSeen = getStoredBestNearbyHintSeen();
 let bestNearbyRenderSequence = 0;
 let bestNearbyRenderedAtMs: number | null = null;
 let bestNearbyPreviousRankSignature: string | null = null;
+let bestNearbyRankChangedCount = 0;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -396,6 +397,7 @@ function getQuickPickEventProps(button: HTMLElement): Record<string, string> {
     station_free: isFree,
     free_only_mode: bestNearbyFreeOnly ? "true" : "false",
     render_seq: String(bestNearbyRenderSequence),
+    rank_changed_count: String(bestNearbyRankChangedCount),
     ...(elapsedMs !== null ? { elapsed_ms_since_render: String(elapsedMs) } : {}),
   };
 }
@@ -438,11 +440,13 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
     .join("|");
 
   if (bestNearbyPreviousRankSignature !== null && bestNearbyPreviousRankSignature !== rankSignature) {
+    bestNearbyRankChangedCount += 1;
     trackPlausible("best_nearby_rank_changed", {
       previous_rank_signature: bestNearbyPreviousRankSignature,
       next_rank_signature: rankSignature,
       free_only: bestNearbyFreeOnly ? "true" : "false",
       render_seq: String(bestNearbyRenderSequence),
+      rank_changed_count: String(bestNearbyRankChangedCount),
     });
   }
 
@@ -455,6 +459,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
         count: "0",
         free_only: "true",
         render_seq: String(bestNearbyRenderSequence),
+        rank_changed_count: String(bestNearbyRankChangedCount),
       });
       list.innerHTML = `
         <p class="best-nearby__empty">
@@ -471,6 +476,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
       count: "0",
       free_only: bestNearbyFreeOnly ? "true" : "false",
       render_seq: String(bestNearbyRenderSequence),
+      rank_changed_count: String(bestNearbyRankChangedCount),
     });
     return;
   }
@@ -480,6 +486,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
     count: String(picks.length),
     free_only: bestNearbyFreeOnly ? "true" : "false",
     render_seq: String(bestNearbyRenderSequence),
+    rank_changed_count: String(bestNearbyRankChangedCount),
   });
   list.innerHTML = picks
     .map((feature, index) => {
