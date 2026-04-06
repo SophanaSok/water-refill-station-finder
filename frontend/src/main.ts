@@ -296,19 +296,6 @@ function renderAppShell() {
       </div>
       <div id="map" class="map-canvas"></div>
       <div id="map-empty-state" class="map-empty-state" style="display: none;"></div>
-      <div id="map-legend" class="map-legend" data-collapsed="true">
-        <button class="map-legend__toggle" type="button" aria-expanded="false">
-          <span>Map legend</span>
-          <span aria-hidden="true">▾</span>
-        </button>
-        <div class="map-legend__body">
-          <div class="map-legend__item"><span class="map-legend__icon">${getStationTypeIconMarkup("fountain")}</span><span>Fountain</span></div>
-          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--bottle">${getStationTypeIconMarkup("bottle_filler")}</span><span>Bottle filler</span></div>
-          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--store">${getStationTypeIconMarkup("store_refill")}</span><span>Store refill</span></div>
-          <div class="map-legend__item"><span class="map-legend__icon map-legend__icon--tap">${getStationTypeIconMarkup("tap")}</span><span>Tap</span></div>
-          <div class="map-legend__item"><span class="map-legend__ring"></span><span>Amber ring = unconfirmed 6+ months</span></div>
-        </div>
-      </div>
       
       <form class="search-bar" role="search" aria-label="Search stations">
         <span class="sidebar-kicker" aria-hidden="true">Find stations</span>
