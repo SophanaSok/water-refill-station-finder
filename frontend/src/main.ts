@@ -28,6 +28,7 @@ let bestNearbyRenderedAtMs: number | null = null;
 let bestNearbyPreviousRankSignature: string | null = null;
 let bestNearbyRankChangedCount = 0;
 const analyticsSessionId = getOrCreateAnalyticsSessionId();
+let desktopDetailsExpanded = getStoredDesktopDetailsExpanded();
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -82,6 +83,23 @@ function getOrCreateAnalyticsSessionId(): string {
     return generated;
   } catch {
     return `sid_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function getStoredDesktopDetailsExpanded(): boolean {
+  try {
+    return localStorage.getItem("desktopDetailsExpanded") === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setStoredDesktopDetailsExpanded(value: boolean) {
+  desktopDetailsExpanded = value;
+  try {
+    localStorage.setItem("desktopDetailsExpanded", value ? "true" : "false");
+  } catch {
+    // Ignore storage write failures.
   }
 }
 
@@ -1012,7 +1030,7 @@ class BottomSheetSnap {
 
   private normalizeState(state: "peek" | "half" | "full"): "peek" | "half" | "full" {
     if (this.isDesktopViewport() && state === "peek") {
-      return "half";
+      return desktopDetailsExpanded ? "full" : "half";
     }
 
     return state;
@@ -1116,7 +1134,9 @@ class BottomSheetSnap {
       const current = this.normalizeState(
         (this.sheet.getAttribute("data-state") as "peek" | "half" | "full") || "half",
       );
-      this.snapTo(current === "full" ? "half" : "full");
+      const next = current === "full" ? "half" : "full";
+      setStoredDesktopDetailsExpanded(next === "full");
+      this.snapTo(next);
     });
   }
 
