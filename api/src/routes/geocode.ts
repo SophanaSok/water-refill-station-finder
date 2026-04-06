@@ -144,6 +144,15 @@ function rankFeatures(features: MapboxFeature[], query: string): MapboxFeature[]
   });
 }
 
+function getPrimaryPlaceType(feature: MapboxFeature | undefined): string {
+  if (!feature || !Array.isArray(feature.place_type)) {
+    return "unknown";
+  }
+
+  const first = feature.place_type.find((type) => typeof type === "string");
+  return typeof first === "string" ? first : "unknown";
+}
+
 const geocodeRoutes: FastifyPluginAsync = async (server) => {
   server.get<{ Querystring: GeocodeQuery }>(
     "/",
@@ -171,10 +180,15 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
     },
     async (request, reply) => {
       const normalizedQuery = request.query.q.trim();
+      const zipLikeQuery = isZipLikeQuery(normalizedQuery);
       const cacheKey = toCacheKey(normalizedQuery);
 
       const cached = await getCached<SimplifiedGeocodeResult[]>(cacheKey);
       if (cached !== null) {
+        if (env.NODE_ENV !== "production") {
+          reply.header("x-geocode-cache", "hit");
+          reply.header("x-geocode-query-kind", zipLikeQuery ? "zip" : "general");
+        }
         return cached;
       }
 
@@ -201,6 +215,12 @@ const geocodeRoutes: FastifyPluginAsync = async (server) => {
       const payload = (await response.json()) as MapboxResponse;
       const rankedFeatures = rankFeatures(payload.features ?? [], normalizedQuery);
       const simplified = simplifyFeatures(rankedFeatures);
+
+      if (env.NODE_ENV !== "production") {
+        reply.header("x-geocode-cache", "miss");
+        reply.header("x-geocode-query-kind", zipLikeQuery ? "zip" : "general");
+        reply.header("x-geocode-top-type", getPrimaryPlaceType(rankedFeatures[0]));
+      }
 
       await setCached(cacheKey, simplified, 3600);
       return simplified;
