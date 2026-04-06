@@ -200,6 +200,26 @@
   line-height: 1.2;
 }
 
+.best-nearby__reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.best-nearby__reason {
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-full);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 32%, var(--color-border) 68%);
+  background: color-mix(in srgb, var(--color-primary) 9%, transparent 91%);
+  color: color-mix(in srgb, var(--color-text) 88%, var(--color-primary) 12%);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.12rem 0.5rem;
+}
+
 .best-nearby__copy p {
   margin: 0;
   font-size: 0.72rem;

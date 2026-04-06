@@ -317,6 +317,32 @@ function scoreQuickPickStation(
   return score;
 }
 
+function getQuickPickReasons(
+  station: NearbyStationsGeoJSON["features"][number]["properties"],
+): string[] {
+  const reasons: string[] = [];
+
+  if (station.is_free) {
+    reasons.push("Free");
+  }
+
+  if (station.is_verified) {
+    reasons.push("Verified");
+  }
+
+  if (station.last_confirmed_days <= 7) {
+    reasons.push("Confirmed this week");
+  } else if (station.last_confirmed_days <= 30) {
+    reasons.push("Confirmed this month");
+  }
+
+  if (reasons.length === 0) {
+    reasons.push("Closest option");
+  }
+
+  return reasons.slice(0, 2);
+}
+
 function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
   const section = document.querySelector<HTMLElement>("#best-nearby");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
@@ -361,11 +387,16 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
           : station.last_confirmed_days <= 30
             ? "Confirmed this month"
             : "Needs fresh confirmation";
+      const reasons = getQuickPickReasons(station);
+      const reasonBadges = reasons
+        .map((reason) => `<span class="best-nearby__reason">${escapeHtml(reason)}</span>`)
+        .join("");
 
       return `
         <article class="best-nearby__item">
           <div class="best-nearby__copy">
             <h3>${stationName}</h3>
+            <div class="best-nearby__reasons" aria-label="Recommendation reasons">${reasonBadges}</div>
             <p>${escapeHtml(summary || "Refill station")}</p>
             <p>${escapeHtml(cityState)} • ${escapeHtml(freshnessLabel)}</p>
           </div>
