@@ -22,6 +22,7 @@ let hasTrackedFirstStationsLoad = false;
 let mapStateFreshTimer: ReturnType<typeof setTimeout> | null = null;
 let lastNearbyStationsGeoJSON: NearbyStationsGeoJSON | null = null;
 let bestNearbyFreeOnly = getStoredBestNearbyFreeOnly();
+let bestNearbyHintSeen = getStoredBestNearbyHintSeen();
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
@@ -37,6 +38,22 @@ function getStoredBestNearbyFreeOnly(): boolean {
 function setStoredBestNearbyFreeOnly(value: boolean) {
   try {
     localStorage.setItem("bestNearbyFreeOnly", value ? "true" : "false");
+  } catch {
+    // Ignore storage write failures.
+  }
+}
+
+function getStoredBestNearbyHintSeen(): boolean {
+  try {
+    return localStorage.getItem("bestNearbyHintSeen") === "true";
+  } catch {
+    return false;
+  }
+}
+
+function setStoredBestNearbyHintSeen(value: boolean) {
+  try {
+    localStorage.setItem("bestNearbyHintSeen", value ? "true" : "false");
   } catch {
     // Ignore storage write failures.
   }
@@ -451,12 +468,36 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
 
 function initBestNearbyQuickPickActions() {
   const freeOnlyToggle = document.querySelector<HTMLButtonElement>("#best-nearby-free-only");
+  const hint = document.querySelector<HTMLElement>("#best-nearby-hint");
+  const hintDismiss = document.querySelector<HTMLButtonElement>("#best-nearby-hint-dismiss");
   const list = document.querySelector<HTMLElement>("#best-nearby-list");
-  if (!list || !freeOnlyToggle) {
+  if (!list || !freeOnlyToggle || !hint || !hintDismiss) {
     return;
   }
 
+  const dismissHint = () => {
+    if (bestNearbyHintSeen) {
+      return;
+    }
+
+    bestNearbyHintSeen = true;
+    setStoredBestNearbyHintSeen(true);
+    hint.style.display = "none";
+  };
+
+  if (bestNearbyHintSeen) {
+    hint.style.display = "none";
+  } else {
+    hint.style.display = "inline-flex";
+    window.setTimeout(() => {
+      dismissHint();
+    }, 9000);
+  }
+
+  hintDismiss.addEventListener("click", dismissHint);
+
   freeOnlyToggle.addEventListener("click", () => {
+    dismissHint();
     bestNearbyFreeOnly = !bestNearbyFreeOnly;
     setStoredBestNearbyFreeOnly(bestNearbyFreeOnly);
     if (lastNearbyStationsGeoJSON) {
@@ -479,6 +520,7 @@ function initBestNearbyQuickPickActions() {
 
     const viewButton = target.closest<HTMLButtonElement>("[data-best-nearby-open]");
     if (viewButton) {
+      dismissHint();
       const stationId = viewButton.getAttribute("data-best-nearby-open");
       if (stationId && mapInstance) {
         void handleMapClick(stationId);
@@ -490,6 +532,8 @@ function initBestNearbyQuickPickActions() {
     if (!goButton) {
       return;
     }
+
+    dismissHint();
 
     const coordinates = goButton.getAttribute("data-best-nearby-go")?.split(",") ?? [];
     const lat = Number.parseFloat(coordinates[0] ?? "");
@@ -589,7 +633,13 @@ function renderAppShell() {
       <section id="best-nearby" class="best-nearby" style="display: none;" aria-label="Best nearby stations">
         <header class="best-nearby__header">
           <span>Best nearby</span>
-          <button id="best-nearby-free-only" type="button" class="best-nearby__toggle" aria-pressed="false">Hide paid</button>
+          <div class="best-nearby__header-actions">
+            <button id="best-nearby-free-only" type="button" class="best-nearby__toggle" aria-pressed="false">Hide paid</button>
+            <span id="best-nearby-hint" class="best-nearby__hint" role="status" aria-live="polite">
+              Fast tip: hide paid stations.
+              <button id="best-nearby-hint-dismiss" type="button" class="best-nearby__hint-dismiss" aria-label="Dismiss tip">×</button>
+            </span>
+          </div>
         </header>
         <div id="best-nearby-list" class="best-nearby__list"></div>
       </section>
