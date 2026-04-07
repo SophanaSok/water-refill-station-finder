@@ -163,10 +163,9 @@
   left: 50%;
   transform: translateX(-50%);
   width: min(92vw, 36rem);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0.45rem var(--space-4);
+  display: grid;
+  gap: 0.12rem;
+  padding: 0.55rem var(--space-4);
   border-radius: var(--radius-md);
   border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent 16%);
   background: color-mix(in srgb, var(--color-surface-elevated) 92%, transparent 8%);
@@ -177,16 +176,27 @@
   transition: border-color var(--transition), background var(--transition);
 }
 
-.map-state-bar__text {
+.map-state-bar__label {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: color-mix(in srgb, var(--color-text) 90%, var(--color-text-muted) 10%);
-  line-height: 1.25;
-  font-weight: 700;
+  color: color-mix(in srgb, var(--color-text) 92%, var(--color-text-muted) 8%);
+  line-height: 1.2;
+  font-size: var(--text-sm);
+  font-weight: 750;
 }
 
+.map-state-bar__meta {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  line-height: 1.2;
+  font-size: var(--text-xs);
+  font-weight: 650;
+}
 .map-state-bar.is-fresh {
   animation: mapStatePulse 0.45s ease-out;
 }
@@ -1124,6 +1134,14 @@
   border-bottom: none;
 }
 
+.app-shell[data-search-active="true"] .map-state-bar,
+.app-shell[data-search-active="true"] .filter-pills,
+.app-shell[data-search-active="true"] .best-nearby,
+.app-shell[data-search-active="true"] .fab-group,
+.app-shell[data-search-active="true"] .search-this-area-btn {
+  display: none;
+}
+
 .app-shell[data-search-active="true"] .map-canvas {
   filter: blur(1px) saturate(0.85);
 }
@@ -1217,13 +1235,18 @@
     margin: var(--space-2) var(--space-4) 0;
     width: auto;
     transform: none;
-    padding: 0.42rem 0.65rem;
+    padding: 0.5rem 0.7rem;
     border-radius: var(--radius-lg);
     border: 1px solid color-mix(in srgb, var(--color-primary) 30%, var(--color-border) 70%);
     background: color-mix(in srgb, var(--color-primary) 8%, var(--color-surface-elevated) 92%);
     box-shadow: none;
 
-    & .map-state-bar__text {
+    & .map-state-bar__label {
+      font-size: 0.8rem;
+      letter-spacing: 0.01em;
+    }
+
+    & .map-state-bar__meta {
       font-size: 0.75rem;
       letter-spacing: 0.01em;
     }
@@ -1440,8 +1463,12 @@
     justify-content: flex-start;
   }
 
-  .map-state-bar__text {
-    font-size: 0.72rem;
+  .map-state-bar__label {
+    font-size: 0.74rem;
+  }
+
+  .map-state-bar__meta {
+    font-size: 0.66rem;
   }
 
   .filter-pills {
@@ -1673,8 +1700,12 @@
     padding: 0.3rem 0.55rem;
   }
 
-  .map-state-bar__text {
-    font-size: 0.66rem;
+  .map-state-bar__label {
+    font-size: 0.64rem;
+  }
+
+  .map-state-bar__meta {
+    font-size: 0.58rem;
   }
 
   .filter-pills {

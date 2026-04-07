@@ -104,21 +104,6 @@ function setStoredDesktopDetailsExpanded(value: boolean) {
   }
 }
 
-function getNearestStationId(geojson: Awaited<ReturnType<typeof fetchStations>>): string | null {
-  const firstFeature = geojson.features[0];
-  const stationId = firstFeature?.properties?.id;
-  return typeof stationId === "string" ? stationId : null;
-}
-
-async function openNearestStationIfAvailable(geojson: Awaited<ReturnType<typeof fetchStations>>): Promise<void> {
-  const nearestStationId = getNearestStationId(geojson);
-  if (!nearestStationId) {
-    return;
-  }
-
-  await handleMapClick(nearestStationId);
-}
-
 function showNoNearbyStationsMessage() {
   const sheet = document.querySelector<HTMLElement>(".bottom-sheet");
   const content = sheet?.querySelector<HTMLElement>(".content");
@@ -294,16 +279,27 @@ function getElement<T extends Element>(selector: string): T {
   return el;
 }
 
-function showUserSearchStatus(message: string) {
+function getMapStateElements() {
   const stateBar = document.querySelector<HTMLElement>("#map-state-bar");
-  const stateText = document.querySelector<HTMLElement>("#map-state-text");
-  if (!stateBar || !stateText) return;
+  const stateLabel = document.querySelector<HTMLElement>("#map-state-label");
+  const stateMeta = document.querySelector<HTMLElement>("#map-state-meta");
 
-  stateText.textContent = message;
-  stateBar.classList.remove("is-fresh");
+  if (!stateBar || !stateLabel || !stateMeta) {
+    return null;
+  }
+
+  return { stateBar, stateLabel, stateMeta };
+}
+
+function showUserSearchStatus(message: string) {
+  const elements = getMapStateElements();
+  if (!elements) return;
+
+  elements.stateLabel.textContent = message;
+  elements.stateBar.classList.remove("is-fresh");
   // Restart highlight animation each time search is applied.
   window.requestAnimationFrame(() => {
-    stateBar.classList.add("is-fresh");
+    elements.stateBar.classList.add("is-fresh");
   });
 
   if (mapStateFreshTimer) {
@@ -311,7 +307,7 @@ function showUserSearchStatus(message: string) {
   }
 
   mapStateFreshTimer = setTimeout(() => {
-    stateBar.classList.remove("is-fresh");
+    elements.stateBar.classList.remove("is-fresh");
   }, 3000);
 }
 
@@ -332,26 +328,29 @@ function updateFilterToggleSummary() {
 }
 
 function updateMapStateFilterSummary() {
-  const stateText = document.querySelector<HTMLElement>("#map-state-text");
-  if (!stateText) return;
+  const elements = getMapStateElements();
+  if (!elements) return;
 
   const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
     .filter((button) => button.getAttribute("data-filter") !== "all")
     .length;
 
   const filterSummary = activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "All filters";
-  const baseText = stateText.textContent?.split(" • ")[0] ?? "Showing nearby stations";
-  const count = document.querySelector<HTMLElement>("#map-state-count")?.textContent ?? "0 results";
-  stateText.textContent = `${baseText} • ${filterSummary} • ${count}`;
+  const count = Number.parseInt(elements.stateMeta.getAttribute("data-count") ?? "0", 10);
+  elements.stateMeta.textContent = `${filterSummary} • ${count} result${count === 1 ? "" : "s"}`;
 }
 
 function updateMapStateCount(count: number) {
-  const stateText = document.querySelector<HTMLElement>("#map-state-text");
-  if (!stateText) return;
+  const elements = getMapStateElements();
+  if (!elements) return;
 
-  const current = stateText.textContent ?? "Showing nearby stations • All filters • 0 results";
-  const [baseText, filterSummary = "All filters"] = current.split(" • ");
-  stateText.textContent = `${baseText} • ${filterSummary} • ${count} result${count === 1 ? "" : "s"}`;
+  const activeCount = Array.from(document.querySelectorAll<HTMLButtonElement>(".filter-pill[aria-pressed='true']"))
+    .filter((button) => button.getAttribute("data-filter") !== "all")
+    .length;
+
+  const filterSummary = activeCount > 0 ? `${activeCount} filter${activeCount === 1 ? "" : "s"} active` : "All filters";
+  elements.stateMeta.setAttribute("data-count", String(count));
+  elements.stateMeta.textContent = `${filterSummary} • ${count} result${count === 1 ? "" : "s"}`;
 }
 
 function escapeHtml(text: string): string {
@@ -760,7 +759,8 @@ function renderAppShell() {
       </form>
 
       <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
-        <span id="map-state-text" class="map-state-bar__text">Showing nearby stations • All filters • 0 results</span>
+        <span id="map-state-label" class="map-state-bar__label">Search by city, ZIP, or station name</span>
+        <span id="map-state-meta" class="map-state-bar__meta" data-count="0">All filters • 0 results</span>
       </div>
 
       <section id="best-nearby" class="best-nearby" style="display: none;" aria-label="Best nearby stations">
@@ -1480,7 +1480,6 @@ class SearchBarController {
     try {
       const geojson = await fetchStationsWithNearbyFallback(lat, lng);
       this.map.loadStations(geojson);
-      await openNearestStationIfAvailable(geojson);
 
       if (geojson.features.length === 0) {
         showNoNearbyStationsMessage();
@@ -1626,9 +1625,9 @@ class SearchThisAreaController {
       const center = this.map.getCurrentCenter();
       try {
         isSearchingThisArea = true;
+        showUserSearchStatus("Finding refill spots in this area");
         const geojson = await fetchStationsWithNearbyFallback(center.lat, center.lng);
         this.map.loadStations(geojson);
-        await openNearestStationIfAvailable(geojson);
         if (geojson.features.length === 0) {
           showNoNearbyStationsMessage();
         }
@@ -1757,10 +1756,10 @@ async function loadStationsAtLocation(lng: number, lat: number) {
   if (!mapInstance) return;
   try {
     isSearchingThisArea = true;
+    showUserSearchStatus("Finding refill spots in this area");
     const geojson = await fetchStationsWithNearbyFallback(lat, lng);
     mapInstance.loadStations(geojson);
     trackFirstStationsLoad(geojson.features.length);
-    await openNearestStationIfAvailable(geojson);
     if (geojson.features.length === 0) {
       showNoNearbyStationsMessage();
     }
@@ -1788,10 +1787,10 @@ function requestGeolocation(map: MapController) {
       // Load stations at user location
       (async () => {
         try {
+          showUserSearchStatus("Finding refill spots near you");
           const geojson = await fetchStationsWithNearbyFallback(latitude, longitude);
           map.loadStations(geojson);
           trackFirstStationsLoad(geojson.features.length);
-          await openNearestStationIfAvailable(geojson);
           if (geojson.features.length === 0) {
             showNoNearbyStationsMessage();
           }
