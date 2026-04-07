@@ -49,6 +49,10 @@ class MapControllerImpl {
     store_refill: "station-type-icon-store",
     tap: "station-type-icon-tap",
   } as const;
+  private readonly colorSchemeQuery =
+    typeof window !== "undefined" && typeof window.matchMedia === "function"
+      ? window.matchMedia("(prefers-color-scheme: dark)")
+      : null;
 
   constructor(containerId: string) {
     this.map = new maplibregl.Map({
@@ -75,6 +79,10 @@ class MapControllerImpl {
 
     this.map.on("load", () => {
       this.initializeStationLayers();
+      this.applyMarkerContrastProfile();
+      this.colorSchemeQuery?.addEventListener("change", () => {
+        this.applyMarkerContrastProfile();
+      });
       if (this.pendingData) {
         this.updateStationSource(this.pendingData);
       }
@@ -224,7 +232,7 @@ class MapControllerImpl {
       filter: ["has", "point_count"],
       paint: {
         "circle-color": "#01696f",
-        "circle-radius": ["step", ["get", "point_count"], 20, 10, 28, 50, 36, 200, 44],
+        "circle-radius": ["step", ["get", "point_count"], 18, 10, 26, 50, 34, 200, 42],
         "circle-opacity": 0.9,
       },
     });
@@ -237,10 +245,22 @@ class MapControllerImpl {
       layout: {
         "text-field": ["get", "point_count_abbreviated"],
         "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-size": 12,
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 10, 10, 11, 14, 12],
       },
       paint: {
         "text-color": "#ffffff",
+      },
+    });
+
+    this.map.addLayer({
+      id: "unclustered-point-halo",
+      type: "circle",
+      source: "stations",
+      filter: ["!", ["has", "point_count"]],
+      paint: {
+        "circle-color": "rgba(0, 0, 0, 0.14)",
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 9.6, 8, 10.9, 12, 13.4, 16, 15.6, 19, 17],
+        "circle-blur": 0.2,
       },
     });
 
@@ -263,9 +283,9 @@ class MapControllerImpl {
           "#7a39bb",
           "#01696f",
         ],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 9, 10, 11, 14, 13, 18, 15],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8.2, 8, 9.4, 12, 11.8, 16, 13.8, 19, 15.2],
         "circle-stroke-color": "#ffffff",
-        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2.25, 12, 2.5, 18, 3],
+        "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 12, 2.4, 18, 2.9],
         "circle-opacity": [
           "case",
           [">=", ["coalesce", ["get", "last_confirmed_days"], 9999], 180],
@@ -300,11 +320,13 @@ class MapControllerImpl {
             this.stationTypeIconImageIds.tap,
             this.stationTypeIconImageIds.fountain,
           ],
-          "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.54, 12, 0.64, 18, 0.78],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.46, 8, 0.52, 12, 0.62, 16, 0.72, 18, 0.8],
           "icon-allow-overlap": true,
           "icon-ignore-placement": true,
         },
       });
+
+      this.applyMarkerContrastProfile();
     });
 
     this.map.addLayer({
@@ -318,7 +340,7 @@ class MapControllerImpl {
       ],
       paint: {
         "circle-color": "rgba(0,0,0,0)",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 11, 8, 12, 14, 14, 18, 16],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 0, 10.2, 8, 11.2, 14, 13.6, 18, 15.8],
         "circle-stroke-color": "#f59e0b",
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 0, 1.25, 8, 1.5, 14, 2, 18, 2.5],
       },
@@ -341,7 +363,7 @@ class MapControllerImpl {
       },
       paint: {
         "circle-color": "rgba(0,0,0,0)",
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 16, 10, 19, 14, 22, 18, 25],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 14.6, 10, 17.8, 14, 21, 18, 24],
         "circle-stroke-color": "#f59e0b",
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 12, 2.5, 18, 3],
         "circle-opacity": 0.95,
@@ -435,6 +457,40 @@ class MapControllerImpl {
       image.onerror = () => reject(new Error("Failed to decode station type icon SVG."));
       image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
     });
+  }
+
+  private applyMarkerContrastProfile(): void {
+    const isDarkContext =
+      document.documentElement.getAttribute("data-theme") === "dark" || this.colorSchemeQuery?.matches === true;
+
+    if (this.map.getLayer("unclustered-point-halo")) {
+      this.map.setPaintProperty(
+        "unclustered-point-halo",
+        "circle-color",
+        isDarkContext ? "rgba(255, 255, 255, 0.24)" : "rgba(0, 0, 0, 0.14)",
+      );
+      this.map.setPaintProperty("unclustered-point-halo", "circle-blur", isDarkContext ? 0.28 : 0.2);
+    }
+
+    if (this.map.getLayer("unclustered-point")) {
+      this.map.setPaintProperty(
+        "unclustered-point",
+        "circle-stroke-width",
+        isDarkContext
+          ? ["interpolate", ["linear"], ["zoom"], 4, 2.2, 12, 2.7, 18, 3.2]
+          : ["interpolate", ["linear"], ["zoom"], 4, 2, 12, 2.4, 18, 2.9],
+      );
+    }
+
+    if (this.map.getLayer("unclustered-point-icon")) {
+      this.map.setLayoutProperty(
+        "unclustered-point-icon",
+        "icon-size",
+        isDarkContext
+          ? ["interpolate", ["linear"], ["zoom"], 4, 0.49, 8, 0.56, 12, 0.67, 16, 0.77, 18, 0.85]
+          : ["interpolate", ["linear"], ["zoom"], 4, 0.46, 8, 0.52, 12, 0.62, 16, 0.72, 18, 0.8],
+      );
+    }
   }
 
   private showStationPreview(feature: maplibregl.MapGeoJSONFeature | undefined): void {
