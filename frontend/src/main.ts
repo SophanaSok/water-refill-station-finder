@@ -751,6 +751,14 @@ function renderAppShell() {
           autocomplete="off"
         />
         <button
+          id="search-near-me"
+          type="button"
+          class="search-bar__locate"
+          aria-label="Use my location"
+        >
+          Near me
+        </button>
+        <button
           id="search-close"
           type="button"
           class="search-bar__close"
@@ -765,7 +773,7 @@ function renderAppShell() {
       </form>
 
       <div id="map-state-bar" class="map-state-bar" aria-live="polite" aria-atomic="true">
-        <span id="map-state-label" class="map-state-bar__label">Search by city, ZIP, or station name</span>
+        <span id="map-state-label" class="map-state-bar__label">Use Near me or search by city, ZIP, or station name</span>
         <span id="map-state-meta" class="map-state-bar__meta" data-count="0">All filters • 0 results</span>
       </div>
 
@@ -856,7 +864,7 @@ function renderAppShell() {
             <div>
               <h2 style="font-size: var(--text-md);">Select a station</h2>
               <p style="color: var(--color-text-muted); margin-top: var(--space-1);">
-                Tap a marker to view details and confirmations.
+                Start with Near me or a search, then tap a marker for details and confirmations.
               </p>
               <div class="meta">
                 <span class="badge">Pending</span>
@@ -1655,9 +1663,9 @@ class SearchThisAreaController {
 function initFabButtons(map: MapController) {
   const fabNearMe = getElement<HTMLButtonElement>("#fab-near-me");
   const fabAdd = getElement<HTMLButtonElement>("#fab-add");
+  const searchNearMe = document.querySelector<HTMLButtonElement>("#search-near-me");
 
-  // Near Me button
-  fabNearMe.addEventListener("click", () => {
+  const centerOnUserLocation = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         const { latitude, longitude } = pos.coords;
@@ -1669,12 +1677,22 @@ function initFabButtons(map: MapController) {
 
         map.flyTo(longitude, latitude, 14);
         map.showUserLocation(longitude, latitude);
-        loadStationsAtLocation(longitude, latitude);
+        showUserSearchStatus("Finding refill spots near you");
+        void loadStationsAtLocation(longitude, latitude);
       },
       () => {
         console.error("Geolocation denied");
       },
     );
+  };
+
+  // Near Me button
+  fabNearMe.addEventListener("click", () => {
+    centerOnUserLocation();
+  });
+
+  searchNearMe?.addEventListener("click", () => {
+    centerOnUserLocation();
   });
 
   fabAdd.addEventListener("click", () => {
