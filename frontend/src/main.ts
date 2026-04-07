@@ -30,9 +30,14 @@ let bestNearbyRankChangedCount = 0;
 const analyticsSessionId = getOrCreateAnalyticsSessionId();
 let desktopDetailsExpanded = getStoredDesktopDetailsExpanded();
 let filterCollapsedBeforeSearch: "true" | "false" | null = null;
+let autoMapRefreshSuppressedUntilMs = 0;
 
 const NEARBY_SEARCH_RADIUS_METERS = 32187;
 type NearbyStationsGeoJSON = Awaited<ReturnType<typeof fetchStations>>;
+
+function suppressAutoMapRefresh(durationMs = 1600) {
+  autoMapRefreshSuppressedUntilMs = Date.now() + durationMs;
+}
 
 function getStoredBestNearbyFreeOnly(): boolean {
   try {
@@ -118,7 +123,7 @@ function showNoNearbyStationsMessage() {
       <div>
         <h2 style="font-size: var(--text-md);">No nearby stations found</h2>
         <p style="color: var(--color-text-muted); margin-top: var(--space-1);">
-          We searched up to 20 miles from your location. Try moving the map and tapping Search this area.
+          We searched up to 20 miles from this map area. Try moving the map to a nearby neighborhood.
         </p>
       </div>
     </article>
@@ -654,6 +659,7 @@ function initBestNearbyQuickPickActions() {
         ...getQuickPickEventProps(viewButton),
       });
       if (mapInstance && Number.isFinite(lat) && Number.isFinite(lng)) {
+        suppressAutoMapRefresh();
         mapInstance.flyTo(lng, lat, 15);
       }
       if (stationId) {
@@ -1324,7 +1330,7 @@ class SearchBarController {
           <span class="search-result-item__icon" aria-hidden="true">📍</span>
           <span class="search-result-item__content">
             <span class="search-result-item__label">${result.place_name}</span>
-            <span class="search-result-item__meta">Tap to search this area</span>
+            <span class="search-result-item__meta">Tap to move map here</span>
           </span>
         </button>
       </li>
@@ -1477,6 +1483,7 @@ class SearchBarController {
     this.closeDropdown();
 
     trackPlausible("search_performed");
+    suppressAutoMapRefresh();
     this.map.flyTo(lng, lat, 14);
     showUserSearchStatus(`Showing results near ${placeLabel}`);
     await this.loadStationsAtLocation(lng, lat);
@@ -1600,59 +1607,77 @@ class FilterPillsController {
 }
 
 // ============================================================================
-// Search This Area Button
+// Auto Refresh on Map Move
 // ============================================================================
 
 class SearchThisAreaController {
   private button: HTMLButtonElement;
   private map;
-  private revealTimer: ReturnType<typeof setTimeout> | null = null;
+  private autoSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private lastAutoSearchCenter: { lat: number; lng: number } | null = null;
+  private readonly minCenterDelta = 0.004;
 
   constructor(mapInstance: MapController) {
     this.button = getElement<HTMLButtonElement>("#search-this-area");
     this.map = mapInstance;
+    this.button.style.display = "none";
     this.initMapMoveHandler();
-    this.initButtonClick();
   }
 
   private initMapMoveHandler() {
     this.map.onMapMove(() => {
-      if (this.revealTimer) {
-        clearTimeout(this.revealTimer);
+      if (isSearchingThisArea) {
+        return;
       }
 
-      // Show button when user manually moves the map
-      if (!isSearchingThisArea && lastGeolocationResult) {
-        const center = this.map.getCurrentCenter();
-        const moved = Math.abs(center.lat - lastGeolocationResult.lat) > 0.01 ||
-                       Math.abs(center.lng - lastGeolocationResult.lng) > 0.01;
-
-        this.revealTimer = setTimeout(() => {
-          this.button.style.display = moved ? "block" : "none";
-        }, 1500);
+      if (Date.now() < autoMapRefreshSuppressedUntilMs) {
+        return;
       }
+
+      const center = this.map.getCurrentCenter();
+      if (!this.hasMovedEnough(center)) {
+        return;
+      }
+
+      if (this.autoSearchTimer) {
+        clearTimeout(this.autoSearchTimer);
+      }
+
+      this.autoSearchTimer = setTimeout(() => {
+        void this.searchAtCenter(center);
+      }, 420);
     });
   }
 
-  private initButtonClick() {
-    this.button.addEventListener("click", async () => {
-      const center = this.map.getCurrentCenter();
-      try {
-        isSearchingThisArea = true;
-        showUserSearchStatus("Finding refill spots in this area");
-        const geojson = await fetchStationsWithNearbyFallback(center.lat, center.lng);
-        this.map.loadStations(geojson);
-        if (geojson.features.length === 0) {
-          showNoNearbyStationsMessage();
-        }
-        showUserSearchStatus("Search applied to this map area");
-        this.button.style.display = "none";
-        isSearchingThisArea = false;
-      } catch (error) {
-        console.error("Failed to search this area:", error);
-        isSearchingThisArea = false;
+  private hasMovedEnough(center: { lat: number; lng: number }): boolean {
+    if (!this.lastAutoSearchCenter) {
+      return true;
+    }
+
+    return (
+      Math.abs(center.lat - this.lastAutoSearchCenter.lat) > this.minCenterDelta ||
+      Math.abs(center.lng - this.lastAutoSearchCenter.lng) > this.minCenterDelta
+    );
+  }
+
+  private async searchAtCenter(center: { lat: number; lng: number }) {
+    try {
+      isSearchingThisArea = true;
+      showUserSearchStatus("Updating stations for this map area");
+      const geojson = await fetchStationsWithNearbyFallback(center.lat, center.lng);
+      this.map.loadStations(geojson);
+      this.lastAutoSearchCenter = center;
+
+      if (geojson.features.length === 0) {
+        showNoNearbyStationsMessage();
       }
-    });
+
+      showUserSearchStatus("Showing stations in this map area");
+      isSearchingThisArea = false;
+    } catch (error) {
+      console.error("Failed to refresh map stations:", error);
+      isSearchingThisArea = false;
+    }
   }
 }
 
@@ -1675,6 +1700,7 @@ function initFabButtons(map: MapController) {
         // Update user location for stationDetail distance calculations
         updateUserLocation(latitude, longitude);
 
+        suppressAutoMapRefresh();
         map.flyTo(longitude, latitude, 14);
         map.showUserLocation(longitude, latitude);
         showUserSearchStatus("Finding refill spots near you");
@@ -1805,6 +1831,7 @@ function requestGeolocation(map: MapController) {
       updateUserLocation(latitude, longitude);
 
       // Fly to user location
+      suppressAutoMapRefresh();
       map.flyTo(longitude, latitude, 14);
       map.showUserLocation(longitude, latitude);
 
@@ -1893,11 +1920,6 @@ async function main() {
 
   // Connect map station click to detail view
   mapInstance.onStationClick((stationId) => {
-    const searchThisAreaButton = document.querySelector<HTMLButtonElement>("#search-this-area");
-    if (searchThisAreaButton) {
-      searchThisAreaButton.style.display = "none";
-    }
-
     handleMapClick(stationId);
   });
 }
