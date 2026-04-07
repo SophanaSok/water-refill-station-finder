@@ -1,5 +1,6 @@
 import maplibregl, { type GeoJSONSource, type Map } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
+import { stationTypeIcons } from "./icons";
 
 export type StationFilters = {
   type?: string;
@@ -41,7 +42,13 @@ class MapControllerImpl {
     { payload: StationFeatureCollection; expiresAt: number }
   >();
   private readonly stationsCacheTtlMs = 30_000;
-  private readonly stationPointLayers = ["unclustered-point", "unclustered-point-label"] as const;
+  private readonly stationPointLayers = ["unclustered-point", "unclustered-point-icon"] as const;
+  private readonly stationTypeIconImageIds = {
+    fountain: "station-type-icon-fountain",
+    bottle_filler: "station-type-icon-bottle",
+    store_refill: "station-type-icon-store",
+    tap: "station-type-icon-tap",
+  } as const;
 
   constructor(containerId: string) {
     this.map = new maplibregl.Map({
@@ -269,32 +276,35 @@ class MapControllerImpl {
       },
     });
 
-    this.map.addLayer({
-      id: "unclustered-point-label",
-      type: "symbol",
-      source: "stations",
-      filter: ["!", ["has", "point_count"]],
-      layout: {
-        "text-field": [
-          "match",
-          ["get", "type"],
-          "fountain",
-          "F",
-          "bottle_filler",
-          "B",
-          "store_refill",
-          "R",
-          "tap",
-          "T",
-          "•",
-        ],
-        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 9, 12, 10, 18, 12],
-        "text-allow-overlap": true,
-      },
-      paint: {
-        "text-color": "#ffffff",
-      },
+    void this.ensureStationTypeImages().then(() => {
+      if (this.map.getLayer("unclustered-point-icon")) {
+        return;
+      }
+
+      this.map.addLayer({
+        id: "unclustered-point-icon",
+        type: "symbol",
+        source: "stations",
+        filter: ["!", ["has", "point_count"]],
+        layout: {
+          "icon-image": [
+            "match",
+            ["get", "type"],
+            "fountain",
+            this.stationTypeIconImageIds.fountain,
+            "bottle_filler",
+            this.stationTypeIconImageIds.bottle_filler,
+            "store_refill",
+            this.stationTypeIconImageIds.store_refill,
+            "tap",
+            this.stationTypeIconImageIds.tap,
+            this.stationTypeIconImageIds.fountain,
+          ],
+          "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.54, 12, 0.64, 18, 0.78],
+          "icon-allow-overlap": true,
+          "icon-ignore-placement": true,
+        },
+      });
     });
 
     this.map.addLayer({
@@ -398,6 +408,33 @@ class MapControllerImpl {
       this.stationPreviewPopup.remove();
     });
 
+  }
+
+  private async ensureStationTypeImages(): Promise<void> {
+    const entries = Object.entries(this.stationTypeIconImageIds) as Array<
+      [keyof typeof this.stationTypeIconImageIds, string]
+    >;
+
+    await Promise.all(
+      entries.map(async ([iconType, imageId]) => {
+        if (this.map.hasImage(imageId)) {
+          return;
+        }
+
+        const svgMarkup = stationTypeIcons[iconType].replace(/currentColor/g, "#ffffff").trim();
+        const image = await this.loadSvgImage(svgMarkup);
+        this.map.addImage(imageId, image);
+      }),
+    );
+  }
+
+  private loadSvgImage(svgMarkup: string): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("Failed to decode station type icon SVG."));
+      image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgMarkup)}`;
+    });
   }
 
   private showStationPreview(feature: maplibregl.MapGeoJSONFeature | undefined): void {
