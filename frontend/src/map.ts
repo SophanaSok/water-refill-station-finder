@@ -197,6 +197,16 @@ class MapControllerImpl {
     (this.map.getSource(sourceId) as GeoJSONSource).setData(data);
   }
 
+  selectStation(lng: number, lat: number): void {
+    const mockFeature = {
+      geometry: {
+        type: "Point" as const,
+        coordinates: [lng, lat],
+      },
+    } as maplibregl.MapGeoJSONFeature;
+    this.pulseSelectedPoint(mockFeature);
+  }
+
   onStationClick(callback: (stationId: string) => void): void {
     this.stationClickCallback = callback;
   }
@@ -741,6 +751,7 @@ export type MapController = {
   flyTo: (lng: number, lat: number, zoom?: number) => void;
   loadStations: (geojson: FeatureCollection) => void;
   setFilter: (filters: StationFilters) => void;
+  selectStation: (lng: number, lat: number) => void;
   showUserLocation: (lng: number, lat: number) => void;
   onStationClick: (callback: (stationId: string) => void) => void;
   onStationsDataChange: (callback: (geojson: FeatureCollection) => void) => void;

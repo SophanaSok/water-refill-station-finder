@@ -661,6 +661,7 @@ function initBestNearbyQuickPickActions() {
       if (mapInstance && Number.isFinite(lat) && Number.isFinite(lng)) {
         suppressAutoMapRefresh();
         mapInstance.flyTo(lng, lat, 15);
+        mapInstance.selectStation(lng, lat);
       }
       if (stationId) {
         void handleMapClick(stationId);
