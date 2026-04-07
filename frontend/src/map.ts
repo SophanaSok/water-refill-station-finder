@@ -41,6 +41,7 @@ class MapControllerImpl {
     { payload: StationFeatureCollection; expiresAt: number }
   >();
   private readonly stationsCacheTtlMs = 30_000;
+  private readonly stationPointLayers = ["unclustered-point", "unclustered-point-label"] as const;
 
   constructor(containerId: string) {
     this.map = new maplibregl.Map({
@@ -255,7 +256,7 @@ class MapControllerImpl {
           "#7a39bb",
           "#01696f",
         ],
-        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 8, 10, 10, 14, 12, 18, 14],
+        "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 9, 10, 11, 14, 13, 18, 15],
         "circle-stroke-color": "#ffffff",
         "circle-stroke-width": ["interpolate", ["linear"], ["zoom"], 4, 2.25, 12, 2.5, 18, 3],
         "circle-opacity": [
@@ -265,6 +266,34 @@ class MapControllerImpl {
           0.98,
         ],
         "circle-blur": 0.02,
+      },
+    });
+
+    this.map.addLayer({
+      id: "unclustered-point-label",
+      type: "symbol",
+      source: "stations",
+      filter: ["!", ["has", "point_count"]],
+      layout: {
+        "text-field": [
+          "match",
+          ["get", "type"],
+          "fountain",
+          "F",
+          "bottle_filler",
+          "B",
+          "store_refill",
+          "R",
+          "tap",
+          "T",
+          "•",
+        ],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": ["interpolate", ["linear"], ["zoom"], 4, 9, 12, 10, 18, 12],
+        "text-allow-overlap": true,
+      },
+      paint: {
+        "text-color": "#ffffff",
       },
     });
 
@@ -328,20 +357,22 @@ class MapControllerImpl {
       });
     });
 
-    this.map.on("click", "unclustered-point", (event) => {
-      const firstFeature = event.features?.[0];
-      const stationId = firstFeature?.properties?.id;
+    this.stationPointLayers.forEach((layerId) => {
+      this.map.on("click", layerId, (event) => {
+        const firstFeature = event.features?.[0];
+        const stationId = firstFeature?.properties?.id;
 
-      if (typeof stationId === "string") {
-        this.pulseSelectedPoint(firstFeature);
-        this.stationPreviewPopup.remove();
-        this.stationClickCallback(stationId);
-      }
-    });
+        if (typeof stationId === "string") {
+          this.pulseSelectedPoint(firstFeature);
+          this.stationPreviewPopup.remove();
+          this.stationClickCallback(stationId);
+        }
+      });
 
-    this.map.on("mousemove", "unclustered-point", (event) => {
-      const firstFeature = event.features?.[0];
-      this.showStationPreview(firstFeature);
+      this.map.on("mousemove", layerId, (event) => {
+        const firstFeature = event.features?.[0];
+        this.showStationPreview(firstFeature);
+      });
     });
 
     this.map.on("mouseenter", "clusters", () => {
@@ -352,13 +383,15 @@ class MapControllerImpl {
       this.map.getCanvas().style.cursor = "";
     });
 
-    this.map.on("mouseenter", "unclustered-point", () => {
-      this.map.getCanvas().style.cursor = "pointer";
-    });
+    this.stationPointLayers.forEach((layerId) => {
+      this.map.on("mouseenter", layerId, () => {
+        this.map.getCanvas().style.cursor = "pointer";
+      });
 
-    this.map.on("mouseleave", "unclustered-point", () => {
-      this.map.getCanvas().style.cursor = "";
-      this.stationPreviewPopup.remove();
+      this.map.on("mouseleave", layerId, () => {
+        this.map.getCanvas().style.cursor = "";
+        this.stationPreviewPopup.remove();
+      });
     });
 
     this.map.on("movestart", () => {
