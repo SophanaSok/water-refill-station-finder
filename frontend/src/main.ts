@@ -568,7 +568,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
             <p>${escapeHtml(cityState)} • ${escapeHtml(freshnessLabel)}</p>
           </div>
           <div class="best-nearby__actions">
-            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Open details</button>
+            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}" data-best-nearby-center="${lat},${lng}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Open details</button>
             <button type="button" class="btn-primary" data-best-nearby-go="${lat},${lng}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Go</button>
           </div>
         </article>
@@ -646,10 +646,16 @@ function initBestNearbyQuickPickActions() {
     if (viewButton) {
       dismissHint("interaction");
       const stationId = viewButton.getAttribute("data-best-nearby-open");
+      const center = viewButton.getAttribute("data-best-nearby-center")?.split(",") ?? [];
+      const lat = Number.parseFloat(center[0] ?? "");
+      const lng = Number.parseFloat(center[1] ?? "");
       trackPlausible("best_nearby_action", {
         action: "view",
         ...getQuickPickEventProps(viewButton),
       });
+      if (mapInstance && Number.isFinite(lat) && Number.isFinite(lng)) {
+        mapInstance.flyTo(lng, lat, 15);
+      }
       if (stationId) {
         void handleMapClick(stationId);
       }
