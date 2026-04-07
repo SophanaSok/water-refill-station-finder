@@ -86,14 +86,14 @@ class MapControllerImpl {
     const typed = geojson as StationFeatureCollection;
     this.pendingData = typed;
     this.hasLoadedStations = true;
-    this.stationsDataCallback(typed);
+    const filtered = this.filterStationsForCurrentFilters(typed);
+    this.stationsDataCallback(filtered);
 
     if (!this.map.isStyleLoaded()) {
       return;
     }
 
-    this.updateStationSource(typed);
-    this.emitVisibleStationsCount();
+    this.updateStationSource(filtered);
   }
 
   setFilter(filters: StationFilters): void {
@@ -107,6 +107,15 @@ class MapControllerImpl {
     }
 
     this.currentFilters = nextFilters;
+
+    if (this.pendingData) {
+      const filtered = this.filterStationsForCurrentFilters(this.pendingData);
+      this.stationsDataCallback(filtered);
+
+      if (this.map.isStyleLoaded()) {
+        this.updateStationSource(filtered);
+      }
+    }
 
     if (this.refetchDebounceTimer) {
       clearTimeout(this.refetchDebounceTimer);
@@ -485,7 +494,7 @@ class MapControllerImpl {
     }
 
     source.setData(data);
-    this.emitVisibleStationsCount();
+    this.visibleStationsCallback(data.features.length);
   }
 
   private emitVisibleStationsCount(): void {
@@ -493,8 +502,30 @@ class MapControllerImpl {
       return;
     }
 
-    const loadedCount = this.pendingData?.features.length ?? 0;
-    this.visibleStationsCallback(loadedCount);
+    const filtered = this.pendingData ? this.filterStationsForCurrentFilters(this.pendingData) : null;
+    this.visibleStationsCallback(filtered?.features.length ?? 0);
+  }
+
+  private filterStationsForCurrentFilters(data: StationFeatureCollection): StationFeatureCollection {
+    const features = data.features.filter((feature) => {
+      const stationType = feature.properties.type ?? undefined;
+      const isFree = feature.properties.is_free;
+
+      if (this.currentFilters.type && stationType !== this.currentFilters.type) {
+        return false;
+      }
+
+      if (typeof this.currentFilters.is_free === "boolean" && isFree !== this.currentFilters.is_free) {
+        return false;
+      }
+
+      return true;
+    });
+
+    return {
+      ...data,
+      features,
+    };
   }
 
   private async refetchStations(): Promise<void> {
