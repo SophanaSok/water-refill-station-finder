@@ -49,6 +49,12 @@ class MapControllerImpl {
     store_refill: "station-type-icon-store",
     tap: "station-type-icon-tap",
   } as const;
+  private readonly stationTypeStaleIconImageIds = {
+    fountain: "station-type-icon-stale-fountain",
+    bottle_filler: "station-type-icon-stale-bottle",
+    store_refill: "station-type-icon-stale-store",
+    tap: "station-type-icon-stale-tap",
+  } as const;
   private readonly colorSchemeQuery =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
       ? window.matchMedia("(prefers-color-scheme: dark)")
@@ -308,17 +314,34 @@ class MapControllerImpl {
         filter: ["!", ["has", "point_count"]],
         layout: {
           "icon-image": [
-            "match",
-            ["get", "type"],
-            "fountain",
-            this.stationTypeIconImageIds.fountain,
-            "bottle_filler",
-            this.stationTypeIconImageIds.bottle_filler,
-            "store_refill",
-            this.stationTypeIconImageIds.store_refill,
-            "tap",
-            this.stationTypeIconImageIds.tap,
-            this.stationTypeIconImageIds.fountain,
+            "case",
+            [">=", ["coalesce", ["get", "last_confirmed_days"], 9999], 180],
+            [
+              "match",
+              ["get", "type"],
+              "fountain",
+              this.stationTypeStaleIconImageIds.fountain,
+              "bottle_filler",
+              this.stationTypeStaleIconImageIds.bottle_filler,
+              "store_refill",
+              this.stationTypeStaleIconImageIds.store_refill,
+              "tap",
+              this.stationTypeStaleIconImageIds.tap,
+              this.stationTypeStaleIconImageIds.fountain,
+            ],
+            [
+              "match",
+              ["get", "type"],
+              "fountain",
+              this.stationTypeIconImageIds.fountain,
+              "bottle_filler",
+              this.stationTypeIconImageIds.bottle_filler,
+              "store_refill",
+              this.stationTypeIconImageIds.store_refill,
+              "tap",
+              this.stationTypeIconImageIds.tap,
+              this.stationTypeIconImageIds.fountain,
+            ],
           ],
           "icon-size": ["interpolate", ["linear"], ["zoom"], 4, 0.46, 8, 0.52, 12, 0.62, 16, 0.72, 18, 0.8],
           "icon-allow-overlap": true,
@@ -433,17 +456,23 @@ class MapControllerImpl {
   }
 
   private async ensureStationTypeImages(): Promise<void> {
-    const entries = Object.entries(this.stationTypeIconImageIds) as Array<
+    const freshEntries = Object.entries(this.stationTypeIconImageIds) as Array<
       [keyof typeof this.stationTypeIconImageIds, string]
+    >;
+    const staleEntries = Object.entries(this.stationTypeStaleIconImageIds) as Array<
+      [keyof typeof this.stationTypeStaleIconImageIds, string]
     >;
 
     await Promise.all(
-      entries.map(async ([iconType, imageId]) => {
+      [
+        ...freshEntries.map(([iconType, imageId]) => ({ iconType, imageId, color: "#ffffff" })),
+        ...staleEntries.map(([iconType, imageId]) => ({ iconType, imageId, color: "#f59e0b" })),
+      ].map(async ({ iconType, imageId, color }) => {
         if (this.map.hasImage(imageId)) {
           return;
         }
 
-        const svgMarkup = stationTypeIcons[iconType].replace(/currentColor/g, "#ffffff").trim();
+        const svgMarkup = stationTypeIcons[iconType].replace(/currentColor/g, color).trim();
         const image = await this.loadSvgImage(svgMarkup);
         this.map.addImage(imageId, image);
       }),
