@@ -39,7 +39,7 @@ export function openStationDetail(station: StationDetail): void {
   attachEventListeners(sheet);
 
   // Animate open
-  sheet.setAttribute("data-state", "half");
+  sheet.setAttribute("data-state", getDetailSheetState());
   sheet.scrollTop = 0;
 
   trackPlausible("station_viewed", {
@@ -54,7 +54,7 @@ export function showStationDetailLoading(): void {
   if (!contentDiv) return;
 
   contentDiv.innerHTML = buildLoadingStationDetailHTML();
-  sheet.setAttribute("data-state", "half");
+  sheet.setAttribute("data-state", getDetailSheetState());
 }
 
 /**
@@ -124,6 +124,10 @@ function getBottomSheet(): HTMLElement {
   const sheet = document.querySelector<HTMLElement>(".bottom-sheet");
   if (!sheet) throw new Error("Bottom sheet not found");
   return sheet;
+}
+
+function getDetailSheetState(): "half" | "full" {
+  return window.matchMedia("(min-width: 1024px)").matches ? "half" : "full";
 }
 
 // ============================================================================

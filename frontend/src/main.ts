@@ -475,7 +475,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
       const [bLng, bLat] = b.geometry.coordinates;
       return scoreQuickPickStation(a.properties, aLat, aLng) - scoreQuickPickStation(b.properties, bLat, bLng);
     })
-    .slice(0, 3);
+    .slice(0, 6);
 
   const rankSignature = picks
     .map((feature, index) => `${index + 1}:${feature.properties.id}`)
@@ -569,7 +569,7 @@ function renderBestNearbyQuickPicks(geojson: NearbyStationsGeoJSON) {
             <p>${escapeHtml(cityState)} • ${escapeHtml(freshnessLabel)}</p>
           </div>
           <div class="best-nearby__actions">
-            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">View</button>
+            <button type="button" class="btn-secondary" data-best-nearby-open="${station.id}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Open details</button>
             <button type="button" class="btn-primary" data-best-nearby-go="${lat},${lng}" data-best-nearby-rank="${rankValue}" data-best-nearby-type="${typeValue}" data-best-nearby-free="${freeValue}">Go</button>
           </div>
         </article>
@@ -651,7 +651,7 @@ function initBestNearbyQuickPickActions() {
         action: "view",
         ...getQuickPickEventProps(viewButton),
       });
-      if (stationId && mapInstance) {
+      if (stationId) {
         void handleMapClick(stationId);
       }
       return;
@@ -1284,7 +1284,7 @@ class SearchBarController {
   }
 
   private renderResults(results: Array<{ place_name: string; center: [number, number] }>, query: string) {
-    const limitedResults = results.slice(0, 6);
+    const limitedResults = results.slice(0, 8);
     this.latestResults = limitedResults;
     this.latestResultsQuery = query;
     this.highlightedIndex = limitedResults.length > 0 ? 0 : -1;
@@ -1306,18 +1306,12 @@ class SearchBarController {
           data-lat="${result.center[1]}"
           role="option"
           aria-selected="${i === this.highlightedIndex ? "true" : "false"}"
-          style="
-            padding: var(--space-3);
-            background: none;
-            border: none;
-            text-align: left;
-            width: 100%;
-            cursor: pointer;
-            font-size: var(--text-sm);
-            color: var(--color-text);
-          "
         >
-          📍 ${result.place_name}
+          <span class="search-result-item__icon" aria-hidden="true">📍</span>
+          <span class="search-result-item__content">
+            <span class="search-result-item__label">${result.place_name}</span>
+            <span class="search-result-item__meta">Tap to search this area</span>
+          </span>
         </button>
       </li>
     `,
